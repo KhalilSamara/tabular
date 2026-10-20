@@ -1,0 +1,2887 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Tabular</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='8 8 48 48'%3E%3Crect x='8' y='8' width='48' height='48' rx='13' fill='%234FC1C9'/%3E%3Crect x='18' y='18' width='28' height='28' rx='4.5' fill='%232B2B2B'/%3E%3Crect x='21' y='27' width='9.5' height='6.75' rx='1.2' fill='%234FC1C9'/%3E%3Crect x='33.5' y='27' width='9.5' height='6.75' rx='1.2' fill='%234FC1C9'/%3E%3Crect x='21' y='36.25' width='9.5' height='6.75' rx='1.2' fill='%234FC1C9'/%3E%3Crect x='33.5' y='36.25' width='9.5' height='6.75' rx='1.2' fill='%234FC1C9'/%3E%3C/svg%3E">
+<style>
+:root {
+  /* JMeter Darcula (suite) */
+  --bg: #2B2B2B;
+  --topbar: #313335;
+  --surface: #3C3F41;
+  --well: #212223;
+  --text: #D6D6D6;
+  --text-2: #9AA0A0;
+  --text-2-s: #A6ACAC;  /* secondary text on surface/separator fills: #9AA0A0 is only 4.0:1 there (AA needs 4.5) */
+  --text-3: #8F9595;
+  --text-flag: #969C9C; /* topbar flag (-l): dimmest grey that keeps 4.5:1 on the topbar */
+  --icon-2: #8A9090;    /* bare topbar icons (gear): 3.9:1, above the 3:1 needed for icons */    /* tertiary text, >= 4.5:1 on page, well and API rows */
+  --border: #4F5355;
+  --sep: #34383A;
+  --ok: #6EBF6E;
+  --err: #FF6E67;
+  --amber: #E3B66B;
+
+  /* Tabular accent */
+  --accent: #4FC1C9;
+  --accent-hover: #6BCDD4;
+  --accent-press: #3AA9B1;
+  --on-accent: #2B2B2B;
+
+  --r-s: 4px;
+  --r-m: 6px;
+  --r-l: 10px;
+
+  --fs-1: 11px;
+  --fs-2: 12px;
+  --fs-3: 13px;
+  --fs-4: 15px;
+  --fs-5: 19px;
+
+  --sans: system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mono: "JetBrains Mono", Consolas, "Cascadia Mono", Menlo, monospace;
+
+  color-scheme: dark;
+}
+</style>
+<style>
+*, *::before, *::after { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: var(--fs-3)/1.4 var(--sans);
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+button, input { font: inherit; color: inherit; }
+button { cursor: pointer; }
+button:disabled { cursor: default; }
+.mono { font-family: var(--mono); }
+:focus { outline: none; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+[hidden] { display: none !important; }
+::selection { background: rgba(79, 193, 201, .35); }
+* { scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+</style>
+<style>
+/* The app fills the window at any zoom level (no page-width cap), like Commandeer. */
+.app { height: 100vh; display: flex; flex-direction: column; }
+
+.topbar {
+  height: 52px; flex: none; display: flex; align-items: center; gap: 12px;
+  padding: 0 16px; background: var(--topbar); border-bottom: 1px solid var(--border);
+}
+/* Suite header standard, measured from Commandeer (2026-10-19): 25px logo box (about 19px chip),
+   15px bold name, 22px divider, 12px gaps, borderless job field, 8px between actions. */
+.brand { display: flex; align-items: center; gap: 8px; flex: none; }
+.brand .logo { display: flex; }
+.brand .name { font-size: var(--fs-4); font-weight: 700; }
+.brand-sep { width: 1px; height: 22px; background: var(--border); flex: none; }
+.job { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; }
+.actions { display: flex; align-items: center; gap: 8px; margin-left: auto; flex: none; }
+
+.workspace { flex: 1; min-height: 0; display: flex; }
+.form {
+  width: 360px; flex: none; overflow-y: auto; padding: 16px; border-right: 1px solid var(--sep);
+}
+.output { flex: 1; min-width: 0; display: flex; flex-direction: column; background: var(--well); }
+.out-head {
+  flex: none; display: flex; align-items: center; gap: 16px; padding: 8px 16px;
+  border-bottom: 1px solid var(--sep); min-height: 48px; flex-wrap: wrap;
+}
+.out-body { flex: 1; min-height: 0; overflow: auto; padding: 16px 24px 32px; }
+
+.dropmask {
+  position: fixed; inset: 8px; border: 2px dashed var(--accent); border-radius: var(--r-l);
+  background: rgba(33, 34, 35, .85); display: flex; align-items: center; justify-content: center;
+  color: var(--accent); font-size: var(--fs-4); pointer-events: none; z-index: 10;
+}
+
+@media (max-width: 900px) {
+  body { overflow: auto; }
+  .app { height: auto; min-height: 100vh; }
+  .workspace { flex-direction: column; }
+  .form { width: auto; border-right: 0; border-bottom: 1px solid var(--sep); overflow: visible; }
+  .output { min-height: 60vh; }
+}
+@media (max-width: 720px) {
+  .topbar { height: auto; flex-wrap: wrap; padding: 8px 16px; gap: 8px; }
+  .brand-sep { display: none; }
+  .job { order: 3; flex-basis: 100%; }
+  .btn .t { display: none; }
+  .btn, .topbar .btn { padding: 0 8px; }
+}
+@media (max-width: 560px) {
+  .actions { flex-direction: column; }
+  .out-body { padding: 12px; }
+}
+</style>
+<style>
+/* Section header: accent square, uppercase mono label, trailing rule */
+.sec { margin-bottom: 24px; }
+.sec-h {
+  display: flex; align-items: center; gap: 8px; margin: 0 0 12px;
+  font: 600 var(--fs-1)/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--text-2);
+}
+.sec-h::before { content: ""; width: 7px; height: 7px; background: var(--accent); flex: none; }
+.sec-h::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+
+.field { margin-top: 12px; }
+.field > label { display: block; margin-bottom: 4px; font-size: var(--fs-2); color: var(--text-2); }
+
+input:not([type]), input[type="text"] {
+  width: 100%; height: 32px; padding: 0 8px; background: var(--surface);
+  border: 1px solid var(--border); border-radius: var(--r-s);
+}
+input:not([type]):focus-visible { outline: 2px solid var(--accent); outline-offset: -1px; border-color: transparent; }
+input.bad { border-color: var(--err); }
+
+.note { margin: 4px 0 0; font-size: var(--fs-2); color: var(--text-2); }
+.note.err, .err { color: var(--err); }
+
+/* Buttons */
+.btn {
+  height: 32px; padding: 0 12px; display: inline-flex; align-items: center; gap: 6px;
+  border-radius: var(--r-s); border: 1px solid transparent; font-weight: 500; white-space: nowrap;
+  transition: background-color .12s, border-color .12s, color .12s;
+}
+.btn .i { display: flex; }
+.btn.primary { background: var(--accent); color: var(--on-accent); }
+.btn.primary:hover:not(:disabled) { background: var(--accent-hover); }
+.btn.primary:active:not(:disabled) { background: var(--accent-press); }
+.btn.ghost { background: transparent; border-color: var(--border); color: var(--text); }
+.btn.ghost:hover:not(:disabled) { background: var(--surface); }
+.btn:disabled { opacity: .45; }
+.btn.done { color: var(--on-accent); }
+
+.icon-btn {
+  width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center; flex: none;
+  background: transparent; border: 0; border-radius: var(--r-s); color: var(--text-2);
+  transition: background-color .12s, color .12s;
+}
+.icon-btn:hover { background: var(--surface); color: var(--text); }
+
+/* Topbar job field (as Commandeer's -t): plain mono flag, then a dark borderless field */
+.flag { flex: none; font-size: var(--fs-3); color: var(--text-flag); }
+.jobfield {
+  flex: 1; min-width: 0; display: flex; align-items: stretch; height: 30px;
+  border: 0; border-radius: var(--r-m); background: var(--bg); box-shadow: inset 0 -1px 0 var(--sep); overflow: hidden;
+}
+/* Ring for keyboard focus only: a mouse click on the picker leaves no ring (as Commandeer's field). */
+.jobfield:has(:focus-visible) { outline: 2px solid var(--accent); outline-offset: -2px; }
+.pick {
+  flex: 1; min-width: 0; text-align: left; background: transparent; border: 0; padding: 0 12px;
+  font: var(--fs-3) var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.pick:focus-visible, .jobfield .icon-btn:focus-visible { outline: none; }
+.jobfield .icon-btn { height: auto; width: 36px; border-radius: 0; }
+.jobfield .icon-btn:focus-visible { background: var(--surface); color: var(--text); }
+
+/* Topbar buttons: taller, semibold, secondary filled with the surface colour (Commandeer) */
+.topbar .btn { height: 34px; padding: 0 14px; gap: 8px; font-size: var(--fs-3); font-weight: 600; border-radius: var(--r-m); }
+.topbar .btn.ghost { background: var(--surface); border-color: var(--border); }
+.topbar .btn.ghost:hover:not(:disabled) { background: #45484A; }
+.topbar .gear { width: 32px; height: 32px; color: var(--icon-2); }
+.topbar .gear:hover { background: transparent; color: var(--text); }
+
+/* Segmented control */
+.seg { display: inline-flex; padding: 2px; gap: 2px; background: var(--surface); border-radius: var(--r-m); }
+.seg button {
+  height: 28px; padding: 0 12px; border: 0; border-radius: var(--r-s); background: transparent;
+  color: var(--text-2-s); font-size: var(--fs-2); font-weight: 500; transition: background-color .12s, color .12s;
+}
+.seg button:hover { color: var(--text); }
+.seg button[aria-checked="true"] { background: var(--accent); color: var(--on-accent); }
+.seg button:disabled { opacity: .45; }
+
+/* Stepper */
+.stepper { display: inline-flex; align-items: center; height: 32px; border: 1px solid var(--border); border-radius: var(--r-s); background: var(--surface); }
+.stepper:focus-within { outline: 2px solid var(--accent); outline-offset: -1px; border-color: transparent; }
+.stepper input { width: 56px; height: 30px; border: 0; background: transparent; text-align: right; padding: 0 4px; font-family: var(--mono); }
+.stepper input:focus-visible { outline: none; }
+.stepper .unit { padding: 0 8px 0 2px; color: var(--text-2-s); font-size: var(--fs-2); }
+.stepper .step { width: 32px; height: 30px; border: 0; background: transparent; color: var(--text-2-s); display: flex; align-items: center; justify-content: center; }
+.stepper .step:hover:not(:disabled) { color: var(--text); background: var(--sep); }
+.stepper.off { opacity: .45; }
+
+/* Colour */
+.colour { display: flex; gap: 8px; }
+.colour input[type="color"] { width: 40px; height: 32px; padding: 2px; border: 1px solid var(--border); border-radius: var(--r-s); background: var(--surface); cursor: pointer; }
+.colour input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+.colour input[type="color"]::-webkit-color-swatch { border: 0; border-radius: 2px; }
+.colour input:not([type]) { width: 112px; }
+
+/* Runs list */
+.runs { display: flex; flex-direction: column; }
+.run { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--sep); }
+.run:first-child { padding-top: 0; }
+.run .vu { display: flex; align-items: stretch; height: 28px; border: 1px solid var(--border); border-radius: var(--r-s); background: var(--surface); overflow: hidden; }
+.run .vu:focus-within { outline: 2px solid var(--accent); outline-offset: -1px; border-color: transparent; }
+.run .vu input { width: 56px; height: 26px; border: 0; background: transparent; text-align: right; padding: 0 6px; font-family: var(--mono); }
+.run .vu input:focus-visible { outline: none; }
+.run .vu span { display: flex; align-items: center; padding: 0 6px; background: var(--sep); color: var(--text-2-s); font-size: var(--fs-1); border-left: 1px solid var(--border); }
+.run .info { min-width: 0; }
+.run .fname { font-size: var(--fs-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.run .sub { font: var(--fs-1)/1.4 var(--mono); color: var(--text-2); }
+.run .sub .flag { color: var(--err); }
+.run .bar { height: 2px; background: var(--sep); border-radius: 1px; margin-top: 4px; overflow: hidden; }
+.run .bar i { display: block; height: 100%; background: var(--accent); width: 0; transition: width .1s; }
+.runs .none { color: var(--text-3); font-size: var(--fs-2); }
+
+/* Settings drawer */
+.scrim { position: fixed; inset: 0; background: rgba(0, 0, 0, .45); z-index: 20; }
+.drawer {
+  position: fixed; top: 0; right: 0; bottom: 0; width: min(380px, 100vw); z-index: 21;
+  background: var(--bg); border-left: 1px solid var(--border); display: flex; flex-direction: column;
+  animation: drawer-in .14s ease-out;
+}
+@keyframes drawer-in { from { transform: translateX(16px); opacity: 0; } to { transform: none; opacity: 1; } }
+.drawer-h { height: 52px; flex: none; display: flex; align-items: center; justify-content: space-between; padding: 0 8px 0 16px; background: var(--topbar); border-bottom: 1px solid var(--sep); }
+.drawer-h h2 { margin: 0; font-size: var(--fs-4); font-weight: 600; }
+.drawer-b { flex: 1; overflow-y: auto; padding: 16px; }
+.drawer-f { border-top: 1px solid var(--sep); padding-top: 16px; }
+.drawer-f .note { color: var(--text-3); }
+
+.checks { display: grid; grid-template-columns: 1fr; gap: 4px; }
+.check { display: flex; align-items: center; gap: 8px; font-size: var(--fs-2); cursor: pointer; min-height: 24px; }
+.check input { width: 16px; height: 16px; margin: 0; accent-color: var(--accent); cursor: pointer; }
+.check .d { color: var(--text-3); font-size: var(--fs-1); }
+
+/* Theme picker (form pane) */
+select {
+  height: 32px; padding: 0 28px 0 8px; background: var(--surface); color: var(--text);
+  border: 1px solid var(--border); border-radius: var(--r-s); font-size: var(--fs-3);
+  appearance: none; -webkit-appearance: none; cursor: pointer; min-width: 0;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239AA0A0' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 8px center;
+}
+select:focus-visible { outline: 2px solid var(--accent); outline-offset: -1px; border-color: transparent; }
+select option, select optgroup { background: var(--surface); color: var(--text); }
+.theme-row { display: flex; align-items: center; gap: 8px; }
+.theme-row select { flex: 1; }
+.mod { font-size: var(--fs-1); color: var(--amber); }
+.linkbtn { background: none; border: 0; padding: 0; color: var(--accent); font-size: var(--fs-2); text-decoration: underline; text-underline-offset: 2px; }
+.linkbtn:hover { color: var(--accent-hover); }
+
+/* Theme list and form (drawer) */
+.tlist { display: flex; flex-direction: column; margin-bottom: 12px; }
+.trow { display: grid; grid-template-columns: 16px 1fr auto; gap: 8px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--sep); }
+.trow .sw { width: 16px; height: 16px; border-radius: 3px; border: 1px solid rgba(255, 255, 255, .12); }
+.trow .tn { min-width: 0; }
+.trow .tn b { display: block; font-weight: 500; font-size: var(--fs-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.trow .tn span { font: var(--fs-1)/1.4 var(--mono); color: var(--text-2); }
+.trow .tag { font: var(--fs-1)/1 var(--mono); color: var(--text-3); padding-right: 8px; }
+.trow .acts { display: flex; }
+.trow .acts .icon-btn { width: 28px; height: 28px; }
+.trow.current .tn b { color: var(--accent); }
+.tform { padding: 4px 0 16px; border-bottom: 1px solid var(--sep); margin-bottom: 12px; }
+.tform .stepper input { width: 64px; }
+.tform-b { display: flex; gap: 8px; margin-top: 16px; }
+.tbar { display: flex; gap: 8px; flex-wrap: wrap; }
+.tbar .btn { height: 28px; font-size: var(--fs-2); }
+#themeNote .linkbtn { margin-left: 6px; }
+.trow { cursor: pointer; } .trow:hover .tn b { color: var(--text); } .trow.current:hover .tn b { color: var(--accent-hover); }
+
+.btn.failed { color: var(--err); }
+.btn.primary.failed { background: transparent; border-color: var(--err); }
+.stepper.bad { border-color: var(--err); }
+</style>
+<style>
+.meta { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: var(--fs-2); color: var(--text-2); }
+.meta b { color: var(--accent); font-weight: 600; }
+.meta .n { color: var(--amber); }
+.meta .flag { color: var(--err); }
+
+.empty {
+  height: 100%; min-height: 240px; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 12px; color: var(--text-2); text-align: center;
+}
+.empty svg { color: var(--text-3); }
+
+/* Table blocks */
+.tblock { margin-bottom: 32px; }
+.tblock-h { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.tblock-h h3 {
+  display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; margin: 0;
+  font: 600 var(--fs-1)/1.2 var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--text-2);
+}
+.tblock-h h3::before { content: ""; width: 7px; height: 7px; background: var(--accent); flex: none; }
+.tblock-h h3::after { content: ""; flex: 1; height: 1px; background: var(--sep); }
+.tblock-h .btn { height: 28px; font-size: var(--fs-2); }
+.paper { display: inline-block; max-width: 100%; overflow-x: auto; background: #fff; padding: 12px; border-radius: var(--r-s); vertical-align: top; }
+.paper table { color: #000; }
+.copy-err { color: var(--err); font-size: var(--fs-2); }
+
+/* Errors view: one row per error type; APIs open underneath. Label columns stay put. */
+.ematrix-wrap { overflow: auto; max-height: 100%; margin: -16px -24px -32px; padding: 0 0 16px; }
+.ematrix { border-collapse: separate; border-spacing: 0; font-size: var(--fs-3); }
+.ematrix th, .ematrix td { padding: 6px 8px; text-align: left; vertical-align: middle; background: var(--well); border-bottom: 1px solid var(--sep); }
+.ematrix thead th {
+  font: 600 var(--fs-1)/1.3 var(--mono); text-transform: uppercase; letter-spacing: .06em; color: var(--text-2);
+  position: sticky; top: 0; z-index: 2; padding-top: 16px; vertical-align: bottom; border-bottom-color: var(--border);
+}
+.ematrix thead th.rcol { text-align: center; white-space: nowrap; min-width: 104px; }
+.ematrix thead th .ord { display: block; color: var(--text-3); }
+.ematrix .c0, .ematrix .c1 { position: sticky; z-index: 1; }
+.ematrix thead .c0, .ematrix thead .c1 { z-index: 3; }
+.ematrix .c0 { left: 0; width: 48px; min-width: 48px; padding-left: 16px; }
+.ematrix .c1 { left: 48px; width: var(--c1w, 420px); min-width: var(--c1w, 420px); max-width: var(--c1w, 420px); border-right: 1px solid var(--border); }
+.ematrix thead th.c1 { position: sticky; }
+.colgrip { position: absolute; top: 0; right: -4px; bottom: 0; width: 8px; cursor: col-resize; z-index: 4; }
+.colgrip::after { content: ""; position: absolute; top: 8px; bottom: 8px; left: 3px; width: 2px; border-radius: 1px; background: transparent; transition: background-color .12s; }
+.colgrip:hover::after, .colgrip:focus-visible::after, body.resizing .colgrip::after { background: var(--accent); }
+.colgrip:focus-visible { outline: none; }
+body.resizing, body.resizing * { cursor: col-resize !important; user-select: none; }
+.ematrix .tailtxt { display: block; direction: rtl; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ematrix .tog { width: 28px; height: 28px; }
+
+.tname { display: flex; align-items: center; gap: 4px; }
+.chev { width: 24px; height: 24px; flex: none; display: flex; align-items: center; justify-content: center; background: none; border: 0; border-radius: var(--r-s); color: var(--text-2); transition: transform .12s, color .12s; }
+.chev:hover { color: var(--text); background: var(--sep); }
+.chev.open { transform: rotate(90deg); color: var(--accent); }
+.tname input {
+  flex: 1; min-width: 0; height: 28px; padding: 0 6px; background: transparent; border: 1px solid transparent;
+  border-radius: var(--r-s); font-size: var(--fs-3); font-weight: 500; text-overflow: ellipsis;
+}
+.tname input:hover { border-color: var(--border); }
+.tname input:focus-visible { background: var(--surface); outline: 2px solid var(--accent); outline-offset: -1px; }
+.tname .apin { flex: none; min-width: 24px; text-align: right; font-size: var(--fs-1); color: var(--text-3); }
+
+.ematrix tr.trow-t td { border-top: 1px solid var(--border); border-bottom: 0; }
+.ematrix tr.trow-t:first-child td { border-top: 0; }
+.ematrix tr.trow-a td { background: #1C1D1E; border-bottom: 0; padding-top: 3px; padding-bottom: 3px; }
+.ematrix tr.trow-a .c1 { padding-left: 40px; font-size: var(--fs-1); color: var(--text-2); }
+.ematrix tr.trow-a .cellbtn { height: 24px; font-size: var(--fs-1); }
+
+.ematrix td.cell { text-align: center; padding: 4px 8px; }
+.cellbtn {
+  min-width: 72px; height: 28px; padding: 0 8px; border: 1px solid var(--border); border-radius: var(--r-s);
+  background: var(--surface); font-family: var(--mono); color: var(--amber); transition: background-color .12s, color .12s, border-color .12s;
+}
+.cellbtn:hover { border-color: var(--accent); }
+.cellbtn.out { background: transparent; color: var(--text-3); text-decoration: line-through; border-style: dashed; }
+.cellbtn.part { border-style: dashed; border-color: var(--amber); }
+.ematrix tr.row-out .tname input, .ematrix tr.row-out .api { color: var(--text-3); text-decoration: line-through; }
+
+.ematrix tfoot td { font-family: var(--mono); font-size: var(--fs-2); color: var(--text-2); border-top: 1px solid var(--border); border-bottom: 0; white-space: nowrap; }
+.ematrix tfoot tr + tr td { border-top: 0; }
+.ematrix tfoot .flabel { text-transform: uppercase; letter-spacing: .06em; font-size: var(--fs-1); padding-left: 36px; }
+.ematrix tfoot td.cell { text-align: center; }
+.ematrix tfoot s { color: var(--text-3); }
+.ematrix tfoot .after { color: var(--accent); }
+@media (max-width: 900px) {
+  .ematrix .c0, .ematrix .c1 { position: static; }
+  .ematrix .c1 { --c1w: 280px; }
+  .ematrix-wrap { margin: -12px; max-height: none; }
+}
+.excl-list { margin-top: 24px; font-size: var(--fs-2); color: var(--text-2); }
+
+.paper:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <header class="topbar">
+    <div class="brand"><span class="logo" id="logo"></span><span class="name">Tabular</span></div>
+    <span class="brand-sep" aria-hidden="true"></span>
+    <div class="job">
+      <span class="flag mono" aria-hidden="true">&minus;l</span>
+      <div class="jobfield" id="pickBox">
+        <button type="button" class="pick" id="pickFiles" aria-label="Add summary.csv files"><span id="pickLabel" class="mono"></span></button>
+        <button type="button" class="icon-btn" id="pickFolder" title="Add run folders" aria-label="Add run folders"></button>
+      </div>
+    </div>
+    <div class="actions">
+      <button type="button" class="btn ghost" id="download" disabled><span class="i"></span><span class="t">Download .xlsx</span></button>
+      <button type="button" class="btn ghost" id="breakdown" disabled><span class="i"></span><span class="t">Breakdown .xlsx</span></button>
+      <button type="button" class="btn primary" id="copyAll" disabled><span class="i"></span><span class="t">Copy all</span></button>
+      <button type="button" class="icon-btn gear" id="gear" aria-label="Settings" aria-haspopup="dialog" aria-controls="drawer"></button>
+    </div>
+    <input type="file" id="fileInput" accept=".csv,text/csv" multiple hidden>
+    <input type="file" id="folderInput" webkitdirectory multiple hidden>
+  </header>
+
+  <main class="workspace">
+    <aside class="form" aria-label="Settings">
+      <section class="sec">
+        <h2 class="sec-h"><span>Runs</span></h2>
+        <div id="runs" class="runs"></div>
+        <p class="note err" id="runsNote" hidden></p>
+      </section>
+
+      <section class="sec">
+        <h2 class="sec-h"><span>Style</span></h2>
+        <div class="field">
+          <label for="themeSel">Theme</label>
+          <div class="theme-row">
+            <select id="themeSel"></select>
+            <span class="mod mono" id="themeMod" hidden>modified</span>
+            <button type="button" class="linkbtn" id="themeRevert" hidden>Revert</button>
+          </div>
+        </div>
+        <div class="field">
+          <label for="headHex">Header colour</label>
+          <div class="colour">
+            <input type="color" id="headPick" aria-label="Header colour picker">
+            <input id="headHex" class="mono" autocomplete="off" spellcheck="false" maxlength="7">
+          </div>
+          <p class="note err" id="hexErr" hidden></p>
+        </div>
+        <div class="field">
+          <label for="font">Font</label>
+          <input id="font" list="fonts" autocomplete="off" spellcheck="false">
+          <p class="note err" id="fontErr" hidden>Font is required</p>
+          <datalist id="fonts">
+            <option value="Sakkal Majalla"><option value="Calibri"><option value="Aptos"><option value="Arial">
+            <option value="Segoe UI"><option value="Times New Roman"><option value="Montserrat">
+          </datalist>
+        </div>
+        <div class="field">
+          <label for="size">Text size</label>
+          <div class="stepper" id="sizeStep">
+            <button type="button" class="step" data-d="-1" aria-label="Decrease text size"></button>
+            <input id="size" inputmode="numeric" autocomplete="off">
+            <span class="unit mono">pt</span>
+            <button type="button" class="step" data-d="1" aria-label="Increase text size"></button>
+          </div>
+          <p class="note err" id="sizeErr" hidden>Whole points, 6 to 48</p>
+        </div>
+      </section>
+    </aside>
+
+    <section class="output" aria-label="Tables">
+      <div class="out-head">
+        <div class="seg" role="radiogroup" aria-label="View" id="viewSeg">
+          <button type="button" role="radio" data-v="tables">Tables</button>
+          <button type="button" role="radio" data-v="errors">Errors</button>
+        </div>
+        <div class="meta mono" id="meta" aria-live="polite"></div>
+      </div>
+      <div class="out-body" id="out"></div>
+    </section>
+  </main>
+  <div class="scrim" id="scrim" hidden></div>
+  <aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-labelledby="drawerTitle" hidden>
+    <div class="drawer-h">
+      <h2 id="drawerTitle">Settings</h2>
+      <button type="button" class="icon-btn" id="drawerClose" aria-label="Close settings"></button>
+    </div>
+    <div class="drawer-b">
+      <section class="sec">
+        <h2 class="sec-h"><span>Themes</span></h2>
+        <div class="tlist" id="themeList"></div>
+        <form class="tform" id="themeForm" hidden novalidate>
+          <div class="field">
+            <label for="tfName">Name</label>
+            <input id="tfName" autocomplete="off" spellcheck="false" maxlength="40">
+            <p class="note err" data-err="name" hidden></p>
+          </div>
+          <div class="field">
+            <label for="tfHex">Header colour</label>
+            <div class="colour">
+              <input type="color" id="tfPick" aria-label="Header colour picker">
+              <input id="tfHex" class="mono" autocomplete="off" spellcheck="false" maxlength="7">
+            </div>
+            <p class="note err" data-err="head" hidden></p>
+          </div>
+          <div class="field">
+            <label for="tfFont">Font</label>
+            <input id="tfFont" list="fonts" autocomplete="off" spellcheck="false">
+            <p class="note err" data-err="font" hidden></p>
+          </div>
+          <div class="field">
+            <label for="tfSize">Text size</label>
+            <div class="stepper"><input id="tfSize" inputmode="numeric" autocomplete="off"><span class="unit mono">pt</span></div>
+            <p class="note err" data-err="size" hidden></p>
+          </div>
+          <div class="tform-b">
+            <button type="submit" class="btn primary" id="tfSave">Save theme</button>
+            <button type="button" class="btn ghost" id="tfCancel">Cancel</button>
+          </div>
+        </form>
+        <div class="tbar">
+          <button type="button" class="btn ghost" id="themeAdd">Add theme</button>
+          <button type="button" class="btn ghost" id="themeExport">Export</button>
+          <button type="button" class="btn ghost" id="themeImport">Import</button>
+          <input type="file" id="themeFile" accept=".json,application/json" hidden>
+        </div>
+        <p class="note" id="themeNote" hidden></p>
+      </section>
+      <section class="sec">
+        <h2 class="sec-h"><span>Throughput</span></h2>
+        <div class="seg" role="radiogroup" aria-label="Duration source" id="durSeg">
+          <button type="button" role="radio" data-v="measured">Measured</button>
+          <button type="button" role="radio" data-v="set">Set</button>
+        </div>
+        <div class="field">
+          <label for="minutes">Run duration</label>
+          <div class="stepper" id="minStep">
+            <button type="button" class="step" data-d="-1" aria-label="Decrease minutes"></button>
+            <input id="minutes" inputmode="numeric" autocomplete="off">
+            <span class="unit mono">min</span>
+            <button type="button" class="step" data-d="1" aria-label="Increase minutes"></button>
+          </div>
+          <p class="note err" id="minErr" hidden></p>
+        </div>
+      </section>
+
+      <section class="sec">
+        <h2 class="sec-h"><span>Per-run table</span></h2>
+        <div class="checks" id="detailCols" role="group" aria-label="Per-run table columns"></div>
+        <p class="note err" id="detailErr" hidden>Keep at least one column</p>
+        <div class="field">
+          <label id="rowsLabel">Rows</label>
+          <div class="seg" role="radiogroup" aria-labelledby="rowsLabel" id="rowsSeg">
+            <button type="button" role="radio" data-v="all">All</button>
+            <button type="button" role="radio" data-v="top">Top N</button>
+          </div>
+        </div>
+        <div class="field" id="topField" hidden>
+          <label for="topN">Slowest by ART</label>
+          <div class="stepper" id="topStep">
+            <button type="button" class="step" data-d="-1" aria-label="Fewer rows"></button>
+            <input id="topN" inputmode="numeric" autocomplete="off">
+            <button type="button" class="step" data-d="1" aria-label="More rows"></button>
+          </div>
+          <p class="note err" id="topErr" hidden></p>
+        </div>
+      </section>
+      <section class="sec">
+        <h2 class="sec-h"><span>All-runs table</span></h2>
+        <div class="checks" id="matrixCols" role="group" aria-label="All-runs table columns"></div>
+        <p class="note err" id="matrixErr" hidden>Keep at least one column</p>
+      </section>
+      <section class="sec">
+        <h2 class="sec-h"><span>Breakdown workbook</span></h2>
+        <div class="checks"><label class="check"><input type="checkbox" id="breakdownTx">Transaction sheets</label>
+          <label class="check"><input type="checkbox" id="breakdownExcl">Exclusions sheet</label></div>
+      </section>
+      <div class="drawer-f">
+        <button type="button" class="btn ghost" id="resetPrefs">Reset settings</button>
+        <p class="note">Settings are saved in this browser.</p>
+      </div>
+    </div>
+  </aside>
+  <div class="dropmask" id="dropmask" hidden><span class="mono">drop summary.csv files or run folders</span></div>
+</div>
+<script>
+globalThis.__TABULAR_WORKER__ = "(function () {\n\"use strict\";\nconst __mods = {}, __cache = {};\nfunction __def(id, f) { __mods[id] = f; }\nfunction __req(id) { if (__cache[id]) return __cache[id]; const e = __cache[id] = {}; __mods[id](e, __req); return e; }\n__def(\"core/csv.js\", function (exports, __req) {\n// Streaming RFC 4180 CSV parser. Feed text chunks in any size; rows are emitted\n// as arrays of strings. Handles quoted fields with commas, doubled quotes and\n// line breaks, and both LF and CRLF line endings.\n\n// JMeter can be set to save with ',' (default), ';' or tab. Picks the delimiter that\n// appears most often, outside quotes, in the header line.\nfunction detectDelimiter(text) {\n  const line = text.replace(/^\\uFEFF/, '').split(/\\r?\\n/)[0] || '';\n  let best = ',', bestN = 0, inQ = false;\n  const n = { ',': 0, ';': 0, '\\t': 0 };\n  for (const ch of line) {\n    if (ch === '\"') inQ = !inQ;\n    else if (!inQ && ch in n) n[ch]++;\n  }\n  for (const d of [',', ';', '\\t']) if (n[d] > bestN) { best = d; bestN = n[d]; }\n  return best;\n}\n\nfunction createCsvParser(onRow, delimiter = ',') {\n  const DELIM = delimiter.charCodeAt(0);\n  let field = '';\n  let row = [];\n  let inQuotes = false;\n  let quotePending = false; // saw a quote inside a quoted field; next char decides\n  let skipLf = false;       // last char was CR ending a row\n\n  function endField() { row.push(field); field = ''; }\n  function endRow() {\n    endField();\n    if (!(row.length === 1 && row[0] === '')) onRow(row);\n    row = [];\n  }\n\n  function feed(text) {\n    let start = 0; // start of the pending plain run inside text\n    const n = text.length;\n    for (let i = 0; i < n; i++) {\n      const c = text.charCodeAt(i);\n      if (skipLf) {\n        skipLf = false;\n        if (c === 10) { start = i + 1; continue; }\n      }\n      if (inQuotes) {\n        if (quotePending) {\n          quotePending = false;\n          if (c === 34) { field += '\"'; start = i + 1; continue; } // \"\" escape\n          inQuotes = false; // closing quote; fall through to unquoted handling\n        } else if (c === 34) {\n          field += text.slice(start, i);\n          quotePending = true;\n          start = i + 1;\n          continue;\n        } else {\n          continue;\n        }\n      }\n      if (c === DELIM) {\n        field += text.slice(start, i); endField(); start = i + 1;\n      } else if (c === 10 || c === 13) {\n        field += text.slice(start, i); endRow(); start = i + 1;\n        if (c === 13) skipLf = true;\n      } else if (c === 34 && field === '' && start === i) {\n        inQuotes = true; start = i + 1;\n      }\n    }\n    if (!quotePending) field += text.slice(start);\n  }\n\n  function end() {\n    if (quotePending) { quotePending = false; inQuotes = false; }\n    if (field !== '' || row.length) endRow();\n  }\n\n  return { feed, end };\n}\n\nexports.detectDelimiter = detectDelimiter;\nexports.createCsvParser = createCsvParser;\n});\n__def(\"core/errors.js\", function (exports, __req) {\n// Error Type name for a failed sample, exactly as JMeter's HTML report names it\n// (report generator, ErrorsSummaryConsumer.getErrorKey):\n// - \"<code>/<message>\", or \"<code>\" when the message is empty\n//   e.g. \"408/Request Timeout\",\n//   \"Non HTTP response code: java.net.SocketTimeoutException/Non HTTP response message: Read timed out\"\n// - 2xx/3xx code, or no code with a failure message: the assertion's failure message,\n//   or \"Assertion failed\" when there is none\n// Names are always editable in the Errors view.\n\nconst isSuccessCode = code => /^\\d+$/.test(code) && Number(code) >= 200 && Number(code) <= 399;\n\nfunction errorTypeName(code, message, failureMessage) {\n  code = (code || '').trim();\n  message = (message || '').trim();\n  const failure = (failureMessage || '').trim();\n  if (isSuccessCode(code) || (!code && failure)) return failure || 'Assertion failed';\n  const key = code + (message ? '/' + message : '');\n  // JMeter would show an empty name here; Tabular never does.\n  return key || 'Error with no response code or message';\n}\n\nexports.errorTypeName = errorTypeName;\n});\n__def(\"core/run.js\", function (exports, __req) {\n// Builds one run model from the rows of a JMeter results CSV (summary.csv).\n//\n// Rules (verified against real runs; see the Tabular spec):\n// - Transaction rows have URL '' or the literal 'null'. Everything else is an HTTP sample.\n// - Sub-results are HTTP samples labelled '<label>-<n>' whose base label also exists as\n//   an HTTP label in the same file. They are not counted.\n// - A request belongs to the next transaction row written on the same thread.\n//   (JMeter writes a Transaction Controller's row after its children.)\nconst { errorTypeName } = __req(\"core/errors.js\");\n\nconst REQUIRED_COLUMNS = [\n  'timeStamp', 'elapsed', 'label', 'responseCode', 'responseMessage',\n  'threadName', 'success', 'failureMessage', 'allThreads', 'URL'\n];\n\nconst SUB_RESULT = /^(.*)-\\d+$/;\n\nclass Grow {\n  constructor(Type) { this.Type = Type; this.a = new Type(1024); this.n = 0; }\n  push(v) {\n    if (this.n === this.a.length) { const b = new this.Type(this.a.length * 2); b.set(this.a); this.a = b; }\n    this.a[this.n++] = v;\n  }\n  done() { return this.a.slice(0, this.n); }\n}\n\nfunction createRunBuilder(fileName) {\n  let col = null;\n  let missing = null;\n  let lineNo = 0;\n  let badRows = 0;\n\n  const labelIds = new Map(); const labels = [];\n  const typeIds = new Map(); const types = [];\n  const httpLabels = new Set();\n\n  const tx = { label: new Grow(Int32Array), elapsed: new Grow(Float64Array), ok: new Grow(Uint8Array) };\n  // Raw HTTP samples are kept until the end so the sub-result rule can see every label.\n  const raw = { label: new Grow(Int32Array), elapsed: new Grow(Float64Array), ok: new Grow(Uint8Array), type: new Grow(Int32Array), tx: new Grow(Int32Array) };\n  const pending = new Map(); // threadName -> raw sample indexes waiting for their transaction row\n\n  let start = Infinity, end = -Infinity, maxThreads = 0;\n\n  const idOf = (map, list, key) => {\n    let id = map.get(key);\n    if (id === undefined) { id = list.length; list.push(key); map.set(key, id); }\n    return id;\n  };\n\n  function row(cells) {\n    lineNo++;\n    if (!col) {\n      col = {};\n      cells.forEach((h, i) => { col[(i === 0 ? h.replace(/^\\uFEFF/, '') : h).trim()] = i; });\n      missing = REQUIRED_COLUMNS.filter(c => col[c] === undefined);\n      return;\n    }\n    if (missing.length) return;\n    if (cells.length < Object.keys(col).length) { badRows++; return; }\n\n    const tsText = cells[col.timeStamp].trim(), elText = cells[col.elapsed].trim();\n    const ts = Number(tsText);\n    const elapsed = Number(elText);\n    if (!tsText || !elText || !Number.isFinite(ts) || !Number.isFinite(elapsed)) { badRows++; return; }\n    if (ts < start) start = ts;\n    if (ts + elapsed > end) end = ts + elapsed;\n    const threads = Number(cells[col.allThreads]);\n    if (threads > maxThreads) maxThreads = threads;\n\n    const label = cells[col.label];\n    const ok = cells[col.success].trim().toLowerCase() === 'true' ? 1 : 0;\n    const url = cells[col.URL];\n    const thread = cells[col.threadName];\n\n    if (url === '' || url === 'null') {\n      const t = tx.label.n;\n      tx.label.push(idOf(labelIds, labels, label));\n      tx.elapsed.push(elapsed);\n      tx.ok.push(ok);\n      const waiting = pending.get(thread);\n      if (waiting) { for (const r of waiting) raw.tx.a[r] = t; pending.delete(thread); }\n      return;\n    }\n\n    httpLabels.add(label);\n    const r = raw.label.n;\n    raw.label.push(idOf(labelIds, labels, label));\n    raw.elapsed.push(elapsed);\n    raw.ok.push(ok);\n    raw.type.push(ok ? -1 : idOf(typeIds, types, errorTypeName(\n      cells[col.responseCode], cells[col.responseMessage], cells[col.failureMessage])));\n    raw.tx.push(-1);\n    let waiting = pending.get(thread);\n    if (!waiting) { waiting = []; pending.set(thread, waiting); }\n    waiting.push(r);\n  }\n\n  function finish() {\n    if (!col) return { error: 'File is empty.' };\n    if (missing.length) return { error: 'Missing columns: ' + missing.join(', ') };\n    if (tx.label.n === 0 && raw.label.n === 0) {\n      return { error: badRows\n        ? `None of the ${badRows} rows could be read. timeStamp must be in epoch milliseconds (JMeter's default).`\n        : 'No samples in file.' };\n    }\n\n    // Drop sub-results.\n    const isSub = labels.map(l => {\n      const m = SUB_RESULT.exec(l);\n      return !!(m && httpLabels.has(m[1]));\n    });\n    const rl = raw.label.done(), rel = raw.elapsed.done(), rok = raw.ok.done(), rtype = raw.type.done(), rtx = raw.tx.a;\n    const keep = [];\n    for (let i = 0; i < rl.length; i++) if (!isSub[rl[i]]) keep.push(i);\n    const req = {\n      label: Int32Array.from(keep, i => rl[i]),\n      elapsed: Float64Array.from(keep, i => rel[i]),\n      ok: Uint8Array.from(keep, i => rok[i]),\n      type: Int32Array.from(keep, i => rtype[i]),\n      tx: Int32Array.from(keep, i => rtx[i])\n    };\n\n    return {\n      fileName,\n      labels,\n      errorTypes: types,\n      tx: { label: tx.label.done(), elapsed: tx.elapsed.done(), ok: tx.ok.done() },\n      req,\n      start,\n      end,\n      measuredSec: (end - start) / 1000,\n      vUsers: maxThreads,\n      badRows\n    };\n  }\n\n  return { row, finish };\n}\n\nexports.REQUIRED_COLUMNS = REQUIRED_COLUMNS;\nexports.createRunBuilder = createRunBuilder;\n});\n__def(\"ui/parse-file.js\", function (exports, __req) {\n// Streams a File through the CSV parser and run builder. Used inside the worker,\n// and on the main thread as a fallback when a worker can't be created.\nconst { createCsvParser, detectDelimiter } = __req(\"core/csv.js\");\nconst { createRunBuilder, REQUIRED_COLUMNS } = __req(\"core/run.js\");\n\nasync function parseFile(file, onProgress, yieldEvery) {\n  const builder = createRunBuilder(file.name);\n  let parser = null;\n  const reader = file.stream().pipeThrough(new TextDecoderStream()).getReader();\n  let loaded = 0, chunks = 0;\n  for (;;) {\n    const { value, done } = await reader.read();\n    if (done) break;\n    if (!parser) parser = createCsvParser(builder.row, detectDelimiter(value));\n    parser.feed(value);\n    loaded += value.length;\n    if (onProgress) onProgress(Math.min(loaded / (file.size || 1), 1));\n    if (yieldEvery && ++chunks % yieldEvery === 0) await new Promise(r => setTimeout(r, 0));\n  }\n  if (parser) parser.end();\n  return builder.finish();\n}\n\n// Reads only the header line to decide whether a CSV is a JMeter results file.\nasync function isResultsCsv(file) {\n  const head = (await file.slice(0, 8192).text()).replace(/^\\uFEFF/, '');\n  const line = head.split(/\\r?\\n/)[0] || '';\n  const cols = line.split(detectDelimiter(line)).map(s => s.trim().replace(/^\"|\"$/g, ''));\n  return REQUIRED_COLUMNS.every(c => cols.includes(c));\n}\n\nfunction transferables(run) {\n  if (!run || run.error) return [];\n  return [run.tx.label, run.tx.elapsed, run.tx.ok, run.req.label, run.req.elapsed, run.req.ok, run.req.type, run.req.tx].map(a => a.buffer);\n}\n\nexports.parseFile = parseFile;\nexports.isResultsCsv = isResultsCsv;\nexports.transferables = transferables;\n});\n__def(\"ui/worker.js\", function (exports, __req) {\n// Parsing worker. Message in: { id, file }. Messages out: { id, progress } and { id, run }.\nconst { parseFile, transferables } = __req(\"ui/parse-file.js\");\n\nself.onmessage = async e => {\n  const { id, file } = e.data;\n  try {\n    let last = 0;\n    const run = await parseFile(file, p => {\n      if (p - last >= 0.02 || p === 1) { last = p; self.postMessage({ id, progress: p }); }\n    });\n    self.postMessage({ id, run }, transferables(run));\n  } catch (err) {\n    self.postMessage({ id, run: { error: 'Could not read file: ' + (err && err.message || err) } });\n  }\n};\n\n\n});\n__req(\"ui/worker.js\");\n})();\n";
+(function () {
+"use strict";
+const __mods = {}, __cache = {};
+function __def(id, f) { __mods[id] = f; }
+function __req(id) { if (__cache[id]) return __cache[id]; const e = __cache[id] = {}; __mods[id](e, __req); return e; }
+__def("core/stats.js", function (exports, __req) {
+// Percentile as JMeter's HTML report computes it (Apache Commons Math, legacy
+// estimation): position p * (n + 1), linear interpolation between neighbours.
+
+function percentile(sortedValues, p) {
+  const n = sortedValues.length;
+  if (n === 0) return NaN;
+  if (n === 1) return sortedValues[0];
+  const pos = (p / 100) * (n + 1);
+  if (pos < 1) return sortedValues[0];
+  if (pos >= n) return sortedValues[n - 1];
+  const lo = Math.floor(pos);
+  const d = pos - lo;
+  const a = sortedValues[lo - 1], b = sortedValues[lo];
+  return a + d * (b - a);
+}
+
+// Natural order: digits compare as numbers, so T2 < T10. Ties fall back to plain order.
+function naturalCompare(a, b) {
+  const ax = a.match(/\d+|\D+/g) || [], bx = b.match(/\d+|\D+/g) || [];
+  const n = Math.min(ax.length, bx.length);
+  for (let i = 0; i < n; i++) {
+    const x = ax[i], y = bx[i];
+    if (x === y) continue;
+    const xd = /^\d/.test(x), yd = /^\d/.test(y);
+    if (xd && yd) {
+      const d = Number(x) - Number(y);
+      if (d) return d;
+      return x.length - y.length;
+    }
+    const lx = x.toLowerCase(), ly = y.toLowerCase();
+    if (lx !== ly) return lx < ly ? -1 : 1;
+    return x < y ? -1 : 1;
+  }
+  return ax.length - bx.length;
+}
+
+// Script-order naming convention: S01_T01_..., or T01_... for shared steps.
+const NUMBERED_LABEL = /^(S\d+_)?T\d+/i;
+
+exports.percentile = percentile;
+exports.naturalCompare = naturalCompare;
+exports.NUMBERED_LABEL = NUMBERED_LABEL;
+});
+__def("core/tables.js", function (exports, __req) {
+// Computes every v1 table from loaded runs and the user's choices.
+//
+// options:
+//   excluded       Set of exclusion keys from exclusionKey(); per run
+//   rename         Map raw error type -> display name (applies to all runs)
+//   durationMode   'measured' | 'set'
+//   setSeconds     duration used when durationMode is 'set'
+//
+// Exclusion (decided 2026-10-17): an excluded request leaves every total. A transaction
+// is removed when it failed and every failing request inside it is excluded.
+const { percentile, naturalCompare, NUMBERED_LABEL } = __req("core/stats.js");
+
+// Run id, then the (type, api) pair JSON-encoded, so names that contain any character,
+// the separator included, can never collide or split wrongly. Keys start with "<runId>\u0001".
+function exclusionKey(runId, rawType, api) {
+  return runId + '\u0001' + pairKey(rawType, api);
+}
+const pairKey = (type, api) => JSON.stringify([type, api]);
+
+// Error groups of one run before exclusions: one entry per (raw type, API).
+function errorGroups(run) {
+  const m = new Map();
+  const { req } = run;
+  for (let i = 0; i < req.ok.length; i++) {
+    if (req.ok[i]) continue;
+    const type = run.errorTypes[req.type[i]];
+    const api = run.labels[req.label[i]];
+    const k = pairKey(type, api);
+    const g = m.get(k);
+    if (g) g.count++; else m.set(k, { type, api, count: 1 });
+  }
+  return [...m.values()];
+}
+
+function runView(run, runId, opts) {
+  const excluded = opts.excluded || new Set();
+  const { req, tx } = run;
+  const nTx = tx.ok.length;
+
+  // Requests after exclusions.
+  let requests = 0, errors = 0;
+  const failChildren = new Int32Array(nTx);   // failing requests per transaction
+  const failExcluded = new Int32Array(nTx);   // of which excluded
+  const errCounts = new Map();                // display type -> count
+  const excludedList = new Map();             // pairKey -> { type, api, count } (for the GUI)
+  for (let i = 0; i < req.ok.length; i++) {
+    const t = req.tx[i];
+    if (req.ok[i]) { requests++; continue; }
+    const rawType = run.errorTypes[req.type[i]];
+    const api = run.labels[req.label[i]];
+    const isExcluded = excluded.has(exclusionKey(runId, rawType, api));
+    if (t >= 0) { failChildren[t]++; if (isExcluded) failExcluded[t]++; }
+    if (isExcluded) {
+      const k = pairKey(rawType, api);
+      const x = excludedList.get(k);
+      if (x) x.count++; else excludedList.set(k, { type: rawType, api, count: 1 });
+      continue;
+    }
+    requests++; errors++;
+    const name = (opts.rename && opts.rename.get(rawType)) || rawType;
+    errCounts.set(name, (errCounts.get(name) || 0) + 1);
+  }
+
+  // Transactions after exclusions.
+  const byLabel = new Map();
+  let removedTx = 0;
+  for (let t = 0; t < nTx; t++) {
+    const ok = tx.ok[t];
+    if (!ok && failChildren[t] > 0 && failExcluded[t] === failChildren[t]) { removedTx++; continue; }
+    const id = tx.label[t];
+    let s = byLabel.get(id);
+    if (!s) { s = { passed: 0, errors: 0, values: [] }; byLabel.set(id, s); }
+    if (ok) s.passed++; else s.errors++;
+    s.values.push(tx.elapsed[t]);
+  }
+  const rows = [...byLabel.entries()].map(([id, s]) => {
+    const v = Float64Array.from(s.values).sort();
+    let sum = 0; for (const x of v) sum += x;
+    return {
+      label: run.labels[id],
+      passed: s.passed,
+      errors: s.errors,
+      count: v.length,
+      art: sum / v.length / 1000,
+      p90: percentile(v, 90) / 1000,
+      p95: percentile(v, 95) / 1000,
+      p99: percentile(v, 99) / 1000
+    };
+  }).sort((a, b) => naturalCompare(a.label, b.label));
+
+  const duration = opts.durationMode === 'set' ? opts.setSeconds : run.measuredSec;
+  const errorRows = [...errCounts.entries()]
+    .map(([type, count]) => ({ type, count, pct: requests ? (count / requests) * 100 : 0 }))
+    .sort((a, b) => b.count - a.count || naturalCompare(a.type, b.type));
+
+  return {
+    runId,
+    vUsers: run.vUsers,
+    requests,
+    errors,
+    passedPct: requests ? ((requests - errors) / requests) * 100 : 0,
+    throughput: duration > 0 ? requests / duration : NaN,
+    durationSec: duration,
+    transactions: rows,
+    errorRows,
+    removedTx,
+    excluded: [...excludedList.values()]
+  };
+}
+
+// runs: [{ id, run, vUsers? }] in display order. Returns everything the UI renders.
+function computeTables(runs, opts = {}) {
+  const views = runs.map(r => {
+    const v = runView(r.run, r.id, opts);
+    if (r.vUsers) v.vUsers = r.vUsers;
+    return v;
+  });
+
+  // Cross-run matrix: union of transaction labels in script order.
+  const all = new Set();
+  views.forEach(v => v.transactions.forEach(t => all.add(t.label)));
+  const labels = [...all].sort(naturalCompare);
+  const matrix = labels.map(label => ({
+    label,
+    cells: views.map(v => {
+      const t = v.transactions.find(x => x.label === label);
+      return t || null;
+    })
+  }));
+
+  const unnumbered = labels.filter(l => !NUMBERED_LABEL.test(l));
+  return { views, matrix, unnumbered };
+}
+
+// Default for the "Set" duration: the most common measured length, rounded to whole minutes.
+function defaultSetMinutes(runs) {
+  const counts = new Map();
+  for (const r of runs) {
+    const m = Math.max(1, Math.round(r.run.measuredSec / 60));
+    counts.set(m, (counts.get(m) || 0) + 1);
+  }
+  let best = 0, bestN = -1;
+  for (const [m, n] of counts) if (n > bestN || (n === bestN && m > best)) { best = m; bestN = n; }
+  return best;
+}
+
+// ---- breakdown (one row per API) -----------------------------------------------------
+// Every HTTP request label of one run after exclusions, slowest average first.
+// Times include failed samples, as in JMeter's HTML report statistics.
+function apiBreakdown(run, runId, opts = {}) {
+  const excluded = opts.excluded || new Set();
+  const { req } = run;
+  const by = new Map();
+  for (let i = 0; i < req.ok.length; i++) {
+    const ok = req.ok[i];
+    if (!ok && excluded.has(exclusionKey(runId, run.errorTypes[req.type[i]], run.labels[req.label[i]]))) continue;
+    const id = req.label[i];
+    let s = by.get(id);
+    if (!s) { s = { passed: 0, errors: 0, values: [] }; by.set(id, s); }
+    if (ok) s.passed++; else s.errors++;
+    s.values.push(req.elapsed[i]);
+  }
+  return [...by.entries()].map(([id, s]) => {
+    const v = Float64Array.from(s.values).sort();
+    let sum = 0; for (const x of v) sum += x;
+    return {
+      label: run.labels[id], passed: s.passed, errors: s.errors, count: v.length,
+      art: sum / v.length / 1000,
+      p90: percentile(v, 90) / 1000, p95: percentile(v, 95) / 1000, p99: percentile(v, 99) / 1000
+    };
+  }).sort((a, b) => b.art - a.art || naturalCompare(a.label, b.label));
+}
+
+// Errors of one run after exclusions, grouped by display name (renames applied):
+// [{ type, count, apis: [{ api, count }] }], largest group first, largest API first.
+function errorDetails(run, runId, opts = {}) {
+  const excluded = opts.excluded || new Set();
+  const groups = new Map();
+  for (const g of errorGroups(run)) {
+    if (excluded.has(exclusionKey(runId, g.type, g.api))) continue;
+    const name = (opts.rename && opts.rename.get(g.type)) || g.type;
+    let e = groups.get(name);
+    if (!e) { e = { type: name, count: 0, apis: new Map() }; groups.set(name, e); }
+    e.count += g.count;
+    e.apis.set(g.api, (e.apis.get(g.api) || 0) + g.count);
+  }
+  return [...groups.values()].map(e => ({
+    type: e.type, count: e.count,
+    apis: [...e.apis.entries()].map(([api, count]) => ({ api, count }))
+      .sort((a, b) => b.count - a.count || naturalCompare(a.api, b.api))
+  })).sort((a, b) => b.count - a.count || naturalCompare(a.type, b.type));
+}
+
+exports.exclusionKey = exclusionKey;
+exports.errorGroups = errorGroups;
+exports.computeTables = computeTables;
+exports.defaultSetMinutes = defaultSetMinutes;
+exports.apiBreakdown = apiBreakdown;
+exports.errorDetails = errorDetails;
+});
+__def("core/table-html.js", function (exports, __req) {
+// Table models and their two clipboard forms: styled HTML (Word, Excel) and TSV.
+//
+// Rules proven by the paste tests (2026-10-17):
+// - style attributes are double-quoted; the style text never contains a double quote
+//   (font names and mso-number-format use single quotes)
+// - every cell carries a full 1pt grid border
+// - Excel number formats travel in mso-number-format
+
+const FIXED = { sub: '#F2F2F2', label: '#F7F7F7', grid: '#D9D9D9', headText: '#FFFFFF', text: '#000000' };
+
+const FMT = { text: '\\@', int: '\\#\\,\\#\\#0', d1: '0\\.0', pct2: '0\\.00%' };
+
+const PRESETS = {
+  Gold: { head: '#B68A35', font: 'Sakkal Majalla', size: 14 },
+  Navy: { head: '#071C35', font: 'Sakkal Majalla', size: 14 },
+  Teal: { head: '#1CA6B8', font: 'Calibri', size: 11 }
+};
+
+// ---- number text ----------------------------------------------------------------
+const intFmt = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 });
+const fmt = {
+  int: n => intFmt.format(n),
+  d1: n => (Number.isFinite(n) ? n.toFixed(1) : 'N/A'),
+  pct2: n => (Number.isFinite(n) ? n.toFixed(2) + '%' : 'N/A')
+};
+
+// ---- cells ------------------------------------------------------------------------
+const head = (text, o = {}) => ({ text, kind: 'head', ...o });
+const sub = text => ({ text, kind: 'sub' });
+const label = text => ({ text, kind: 'label' });
+const body = text => ({ text, kind: 'body' });
+// value: the number Excel should store (percent as a fraction); text: what the report shows.
+const num = (n, f) => Number.isFinite(n)
+  ? { text: fmt[f](n), kind: 'num', fmt: f, value: f === 'pct2' ? n / 100 : n }
+  : { text: 'N/A', kind: 'num', fmt: 'text' };
+
+// ---- table models -------------------------------------------------------------------
+// runLabels: display label per view, e.g. "50 vUsers" or "1000 vUsers (1st)"
+
+function summaryTable(views, runLabels) {
+  return {
+    id: 'summary',
+    title: 'Number of Requests',
+    sheet: 'Requests',
+    rows: [
+      [head('Number of Concurrent Users'), ...runLabels.map(l => head(l))],
+      [label('Total Number of Requests'), ...views.map(v => num(v.requests, 'int'))],
+      [label('Percent of Passed Requests'), ...views.map(v => num(v.passedPct, 'pct2'))],
+      [label('Throughput (Request/s)'), ...views.map(v => num(v.throughput, 'd1'))]
+    ]
+  };
+}
+
+// Columns the user can choose for the per-run and all-runs tables, in display order.
+const COLUMNS = [
+  { key: 'count', label: 'Count', f: 'int' },
+  { key: 'passed', label: 'Passed Count', f: 'int' },
+  { key: 'errors', label: 'Error Count', f: 'int' },
+  { key: 'art', label: 'ART (Sec)', f: 'd1' },
+  { key: 'p90', label: '90th (Sec)', f: 'd1' },
+  { key: 'p95', label: '95th (Sec)', f: 'd1' },
+  { key: 'p99', label: '99th (Sec)', f: 'd1' }
+];
+const DEFAULT_DETAIL_COLS = ['passed', 'errors', 'art', 'p90'];
+const DEFAULT_MATRIX_COLS = ['count', 'art'];
+
+const pickCols = keys => {
+  const cols = COLUMNS.filter(c => keys.includes(c.key));
+  return cols.length ? cols : COLUMNS.filter(c => DEFAULT_DETAIL_COLS.includes(c.key));
+};
+// A transaction missing from a run: counts are 0, times are N/A.
+const colCell = (t, c) => t ? num(t[c.key], c.f) : (c.f === 'int' ? num(0, 'int') : num(NaN));
+
+function matrixTable(result, runLabels, keys = DEFAULT_MATRIX_COLS) {
+  const cols = pickCols(keys);
+  const rows = [
+    [head('Transaction', { rs: 2 }), ...runLabels.map(l => head(l, cols.length > 1 ? { cs: cols.length } : {}))],
+    runLabels.flatMap(() => cols.map(c => sub(c.label)))
+  ];
+  for (const m of result.matrix) rows.push([body(m.label), ...m.cells.flatMap(t => cols.map(c => colCell(t, c)))]);
+  return { id: 'matrix', title: 'Average Response Time', sheet: 'ART all runs', rows };
+}
+
+// top: null for every transaction in script order, or N for the N slowest by ART
+// (slowest first; equal ART keeps script order), as in the client reports.
+function topByArt(transactions, top) {
+  if (!top) return transactions;
+  return transactions.map((t, i) => ({ t, i })).sort((a, b) => b.t.art - a.t.art || a.i - b.i).slice(0, top).map(x => x.t);
+}
+
+function detailTable(view, runLabel, keys = DEFAULT_DETAIL_COLS, top = null) {
+  const cols = pickCols(keys);
+  const rows = [
+    [head('Transaction', { rs: 2 }), head(runLabel, cols.length > 1 ? { cs: cols.length } : {})],
+    cols.map(c => sub(c.label))
+  ];
+  for (const t of topByArt(view.transactions, top)) rows.push([body(t.label), ...cols.map(c => colCell(t, c))]);
+  return { id: 'detail-' + view.runId, title: `Average Response Time (${runLabel})`, sheet: `ART ${runLabel}`, rows };
+}
+
+function errorTable(view, runLabel) {
+  if (!view.errorRows.length) return null;
+  const rows = [[head('Error Type'), head('Error Percentage'), head('Error Count')]];
+  for (const e of view.errorRows) rows.push([label(e.type), num(e.pct, 'pct2'), num(e.count, 'int')]);
+  return { id: 'errors-' + view.runId, title: `Error Readings (${runLabel})`, sheet: `Errors ${runLabel}`, rows };
+}
+
+// ---- HTML ---------------------------------------------------------------------------
+function cleanFont(name) {
+  return String(name || '').replace(/["'<>;{}\\]/g, '').trim() || 'Calibri';
+}
+
+function esc(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+// Percent text such as "98.63%" pastes into Excel as 0.9863 shown with 0.00%.
+function cellText(c) { return c.text; }
+
+function cellStyle(c, style) {
+  const isHead = c.kind === 'head';
+  const bg = isHead ? style.head : c.kind === 'sub' ? FIXED.sub : c.kind === 'label' ? FIXED.label : '#FFFFFF';
+  const align = c.kind === 'num' || c.kind === 'sub' || isHead ? 'center' : 'left';
+  const bold = isHead || c.kind === 'sub' || c.kind === 'label';
+  return [
+    `font-family:'${cleanFont(style.font)}', sans-serif`,
+    `font-size:${Number(style.size) || 11}pt`,
+    `color:${isHead ? FIXED.headText : FIXED.text}`,
+    `background:${bg}`,
+    `font-weight:${bold ? 'bold' : 'normal'}`,
+    `text-align:${align}`,
+    'vertical-align:middle',
+    'padding:2pt 5.4pt',
+    `border:solid ${FIXED.grid} 1.0pt`,
+    `mso-number-format:'${FMT[c.fmt || 'text']}'`,
+    'white-space:nowrap'
+  ].join(';');
+}
+
+function tableHtml(table, style) {
+  const trs = table.rows.map(r => '<tr>' + r.map(c => {
+    const tag = c.kind === 'head' || c.kind === 'sub' ? 'th' : 'td';
+    const span = (c.cs ? ` colspan="${c.cs}"` : '') + (c.rs ? ` rowspan="${c.rs}"` : '');
+    return `<${tag}${span} style="${cellStyle(c, style)}"><p style="margin:0">${esc(cellText(c))}</p></${tag}>`;
+  }).join('') + '</tr>').join('');
+  return '<table cellspacing="0" cellpadding="0" style="border-collapse:collapse;border:none;mso-table-layout-alt:fixed">' + trs + '</table>';
+}
+
+function headingHtml(text, style) {
+  return `<p style="font-family:'${cleanFont(style.font)}', sans-serif;font-size:${Number(style.size) || 11}pt;font-weight:bold;margin:12pt 0 6pt 0">${esc(text)}</p>`;
+}
+
+function wrapClipboardHtml(inner) {
+  return '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel">' +
+    '<head><meta charset="utf-8"></head><body>' + inner + '</body></html>';
+}
+
+// ---- TSV (plain-text clipboard) -----------------------------------------------------
+function tableGrid(table) {
+  // Expand row/col spans into a rectangular grid of strings.
+  const grid = [];
+  table.rows.forEach((r, ri) => {
+    grid[ri] = grid[ri] || [];
+    let ci = 0;
+    for (const c of r) {
+      while (grid[ri][ci] !== undefined) ci++;
+      const cs = c.cs || 1, rs = c.rs || 1;
+      for (let dr = 0; dr < rs; dr++) {
+        grid[ri + dr] = grid[ri + dr] || [];
+        for (let dc = 0; dc < cs; dc++) grid[ri + dr][ci + dc] = dr === 0 && dc === 0 ? cellText(c) : '';
+      }
+      ci += cs;
+    }
+  });
+  return grid;
+}
+
+function tableTsv(table) {
+  return tableGrid(table).map(r => r.map(s => String(s).replace(/[\t\r\n]+/g, ' ')).join('\t')).join('\n');
+}
+
+exports.FIXED = FIXED;
+exports.PRESETS = PRESETS;
+exports.fmt = fmt;
+exports.summaryTable = summaryTable;
+exports.COLUMNS = COLUMNS;
+exports.DEFAULT_DETAIL_COLS = DEFAULT_DETAIL_COLS;
+exports.DEFAULT_MATRIX_COLS = DEFAULT_MATRIX_COLS;
+exports.matrixTable = matrixTable;
+exports.topByArt = topByArt;
+exports.detailTable = detailTable;
+exports.errorTable = errorTable;
+exports.cleanFont = cleanFont;
+exports.cellStyle = cellStyle;
+exports.tableHtml = tableHtml;
+exports.headingHtml = headingHtml;
+exports.wrapClipboardHtml = wrapClipboardHtml;
+exports.tableGrid = tableGrid;
+exports.tableTsv = tableTsv;
+});
+__def("core/csv.js", function (exports, __req) {
+// Streaming RFC 4180 CSV parser. Feed text chunks in any size; rows are emitted
+// as arrays of strings. Handles quoted fields with commas, doubled quotes and
+// line breaks, and both LF and CRLF line endings.
+
+// JMeter can be set to save with ',' (default), ';' or tab. Picks the delimiter that
+// appears most often, outside quotes, in the header line.
+function detectDelimiter(text) {
+  const line = text.replace(/^\uFEFF/, '').split(/\r?\n/)[0] || '';
+  let best = ',', bestN = 0, inQ = false;
+  const n = { ',': 0, ';': 0, '\t': 0 };
+  for (const ch of line) {
+    if (ch === '"') inQ = !inQ;
+    else if (!inQ && ch in n) n[ch]++;
+  }
+  for (const d of [',', ';', '\t']) if (n[d] > bestN) { best = d; bestN = n[d]; }
+  return best;
+}
+
+function createCsvParser(onRow, delimiter = ',') {
+  const DELIM = delimiter.charCodeAt(0);
+  let field = '';
+  let row = [];
+  let inQuotes = false;
+  let quotePending = false; // saw a quote inside a quoted field; next char decides
+  let skipLf = false;       // last char was CR ending a row
+
+  function endField() { row.push(field); field = ''; }
+  function endRow() {
+    endField();
+    if (!(row.length === 1 && row[0] === '')) onRow(row);
+    row = [];
+  }
+
+  function feed(text) {
+    let start = 0; // start of the pending plain run inside text
+    const n = text.length;
+    for (let i = 0; i < n; i++) {
+      const c = text.charCodeAt(i);
+      if (skipLf) {
+        skipLf = false;
+        if (c === 10) { start = i + 1; continue; }
+      }
+      if (inQuotes) {
+        if (quotePending) {
+          quotePending = false;
+          if (c === 34) { field += '"'; start = i + 1; continue; } // "" escape
+          inQuotes = false; // closing quote; fall through to unquoted handling
+        } else if (c === 34) {
+          field += text.slice(start, i);
+          quotePending = true;
+          start = i + 1;
+          continue;
+        } else {
+          continue;
+        }
+      }
+      if (c === DELIM) {
+        field += text.slice(start, i); endField(); start = i + 1;
+      } else if (c === 10 || c === 13) {
+        field += text.slice(start, i); endRow(); start = i + 1;
+        if (c === 13) skipLf = true;
+      } else if (c === 34 && field === '' && start === i) {
+        inQuotes = true; start = i + 1;
+      }
+    }
+    if (!quotePending) field += text.slice(start);
+  }
+
+  function end() {
+    if (quotePending) { quotePending = false; inQuotes = false; }
+    if (field !== '' || row.length) endRow();
+  }
+
+  return { feed, end };
+}
+
+exports.detectDelimiter = detectDelimiter;
+exports.createCsvParser = createCsvParser;
+});
+__def("core/errors.js", function (exports, __req) {
+// Error Type name for a failed sample, exactly as JMeter's HTML report names it
+// (report generator, ErrorsSummaryConsumer.getErrorKey):
+// - "<code>/<message>", or "<code>" when the message is empty
+//   e.g. "408/Request Timeout",
+//   "Non HTTP response code: java.net.SocketTimeoutException/Non HTTP response message: Read timed out"
+// - 2xx/3xx code, or no code with a failure message: the assertion's failure message,
+//   or "Assertion failed" when there is none
+// Names are always editable in the Errors view.
+
+const isSuccessCode = code => /^\d+$/.test(code) && Number(code) >= 200 && Number(code) <= 399;
+
+function errorTypeName(code, message, failureMessage) {
+  code = (code || '').trim();
+  message = (message || '').trim();
+  const failure = (failureMessage || '').trim();
+  if (isSuccessCode(code) || (!code && failure)) return failure || 'Assertion failed';
+  const key = code + (message ? '/' + message : '');
+  // JMeter would show an empty name here; Tabular never does.
+  return key || 'Error with no response code or message';
+}
+
+exports.errorTypeName = errorTypeName;
+});
+__def("core/run.js", function (exports, __req) {
+// Builds one run model from the rows of a JMeter results CSV (summary.csv).
+//
+// Rules (verified against real runs; see the Tabular spec):
+// - Transaction rows have URL '' or the literal 'null'. Everything else is an HTTP sample.
+// - Sub-results are HTTP samples labelled '<label>-<n>' whose base label also exists as
+//   an HTTP label in the same file. They are not counted.
+// - A request belongs to the next transaction row written on the same thread.
+//   (JMeter writes a Transaction Controller's row after its children.)
+const { errorTypeName } = __req("core/errors.js");
+
+const REQUIRED_COLUMNS = [
+  'timeStamp', 'elapsed', 'label', 'responseCode', 'responseMessage',
+  'threadName', 'success', 'failureMessage', 'allThreads', 'URL'
+];
+
+const SUB_RESULT = /^(.*)-\d+$/;
+
+class Grow {
+  constructor(Type) { this.Type = Type; this.a = new Type(1024); this.n = 0; }
+  push(v) {
+    if (this.n === this.a.length) { const b = new this.Type(this.a.length * 2); b.set(this.a); this.a = b; }
+    this.a[this.n++] = v;
+  }
+  done() { return this.a.slice(0, this.n); }
+}
+
+function createRunBuilder(fileName) {
+  let col = null;
+  let missing = null;
+  let lineNo = 0;
+  let badRows = 0;
+
+  const labelIds = new Map(); const labels = [];
+  const typeIds = new Map(); const types = [];
+  const httpLabels = new Set();
+
+  const tx = { label: new Grow(Int32Array), elapsed: new Grow(Float64Array), ok: new Grow(Uint8Array) };
+  // Raw HTTP samples are kept until the end so the sub-result rule can see every label.
+  const raw = { label: new Grow(Int32Array), elapsed: new Grow(Float64Array), ok: new Grow(Uint8Array), type: new Grow(Int32Array), tx: new Grow(Int32Array) };
+  const pending = new Map(); // threadName -> raw sample indexes waiting for their transaction row
+
+  let start = Infinity, end = -Infinity, maxThreads = 0;
+
+  const idOf = (map, list, key) => {
+    let id = map.get(key);
+    if (id === undefined) { id = list.length; list.push(key); map.set(key, id); }
+    return id;
+  };
+
+  function row(cells) {
+    lineNo++;
+    if (!col) {
+      col = {};
+      cells.forEach((h, i) => { col[(i === 0 ? h.replace(/^\uFEFF/, '') : h).trim()] = i; });
+      missing = REQUIRED_COLUMNS.filter(c => col[c] === undefined);
+      return;
+    }
+    if (missing.length) return;
+    if (cells.length < Object.keys(col).length) { badRows++; return; }
+
+    const tsText = cells[col.timeStamp].trim(), elText = cells[col.elapsed].trim();
+    const ts = Number(tsText);
+    const elapsed = Number(elText);
+    if (!tsText || !elText || !Number.isFinite(ts) || !Number.isFinite(elapsed)) { badRows++; return; }
+    if (ts < start) start = ts;
+    if (ts + elapsed > end) end = ts + elapsed;
+    const threads = Number(cells[col.allThreads]);
+    if (threads > maxThreads) maxThreads = threads;
+
+    const label = cells[col.label];
+    const ok = cells[col.success].trim().toLowerCase() === 'true' ? 1 : 0;
+    const url = cells[col.URL];
+    const thread = cells[col.threadName];
+
+    if (url === '' || url === 'null') {
+      const t = tx.label.n;
+      tx.label.push(idOf(labelIds, labels, label));
+      tx.elapsed.push(elapsed);
+      tx.ok.push(ok);
+      const waiting = pending.get(thread);
+      if (waiting) { for (const r of waiting) raw.tx.a[r] = t; pending.delete(thread); }
+      return;
+    }
+
+    httpLabels.add(label);
+    const r = raw.label.n;
+    raw.label.push(idOf(labelIds, labels, label));
+    raw.elapsed.push(elapsed);
+    raw.ok.push(ok);
+    raw.type.push(ok ? -1 : idOf(typeIds, types, errorTypeName(
+      cells[col.responseCode], cells[col.responseMessage], cells[col.failureMessage])));
+    raw.tx.push(-1);
+    let waiting = pending.get(thread);
+    if (!waiting) { waiting = []; pending.set(thread, waiting); }
+    waiting.push(r);
+  }
+
+  function finish() {
+    if (!col) return { error: 'File is empty.' };
+    if (missing.length) return { error: 'Missing columns: ' + missing.join(', ') };
+    if (tx.label.n === 0 && raw.label.n === 0) {
+      return { error: badRows
+        ? `None of the ${badRows} rows could be read. timeStamp must be in epoch milliseconds (JMeter's default).`
+        : 'No samples in file.' };
+    }
+
+    // Drop sub-results.
+    const isSub = labels.map(l => {
+      const m = SUB_RESULT.exec(l);
+      return !!(m && httpLabels.has(m[1]));
+    });
+    const rl = raw.label.done(), rel = raw.elapsed.done(), rok = raw.ok.done(), rtype = raw.type.done(), rtx = raw.tx.a;
+    const keep = [];
+    for (let i = 0; i < rl.length; i++) if (!isSub[rl[i]]) keep.push(i);
+    const req = {
+      label: Int32Array.from(keep, i => rl[i]),
+      elapsed: Float64Array.from(keep, i => rel[i]),
+      ok: Uint8Array.from(keep, i => rok[i]),
+      type: Int32Array.from(keep, i => rtype[i]),
+      tx: Int32Array.from(keep, i => rtx[i])
+    };
+
+    return {
+      fileName,
+      labels,
+      errorTypes: types,
+      tx: { label: tx.label.done(), elapsed: tx.elapsed.done(), ok: tx.ok.done() },
+      req,
+      start,
+      end,
+      measuredSec: (end - start) / 1000,
+      vUsers: maxThreads,
+      badRows
+    };
+  }
+
+  return { row, finish };
+}
+
+exports.REQUIRED_COLUMNS = REQUIRED_COLUMNS;
+exports.createRunBuilder = createRunBuilder;
+});
+__def("ui/parse-file.js", function (exports, __req) {
+// Streams a File through the CSV parser and run builder. Used inside the worker,
+// and on the main thread as a fallback when a worker can't be created.
+const { createCsvParser, detectDelimiter } = __req("core/csv.js");
+const { createRunBuilder, REQUIRED_COLUMNS } = __req("core/run.js");
+
+async function parseFile(file, onProgress, yieldEvery) {
+  const builder = createRunBuilder(file.name);
+  let parser = null;
+  const reader = file.stream().pipeThrough(new TextDecoderStream()).getReader();
+  let loaded = 0, chunks = 0;
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    if (!parser) parser = createCsvParser(builder.row, detectDelimiter(value));
+    parser.feed(value);
+    loaded += value.length;
+    if (onProgress) onProgress(Math.min(loaded / (file.size || 1), 1));
+    if (yieldEvery && ++chunks % yieldEvery === 0) await new Promise(r => setTimeout(r, 0));
+  }
+  if (parser) parser.end();
+  return builder.finish();
+}
+
+// Reads only the header line to decide whether a CSV is a JMeter results file.
+async function isResultsCsv(file) {
+  const head = (await file.slice(0, 8192).text()).replace(/^\uFEFF/, '');
+  const line = head.split(/\r?\n/)[0] || '';
+  const cols = line.split(detectDelimiter(line)).map(s => s.trim().replace(/^"|"$/g, ''));
+  return REQUIRED_COLUMNS.every(c => cols.includes(c));
+}
+
+function transferables(run) {
+  if (!run || run.error) return [];
+  return [run.tx.label, run.tx.elapsed, run.tx.ok, run.req.label, run.req.elapsed, run.req.ok, run.req.type, run.req.tx].map(a => a.buffer);
+}
+
+exports.parseFile = parseFile;
+exports.isResultsCsv = isResultsCsv;
+exports.transferables = transferables;
+});
+__def("ui/loader.js", function (exports, __req) {
+// File intake: picker files, dropped files and dropped folders. Parsing runs in a
+// worker (Blob URL in the single-file build, module URL in dev); if no worker can
+// be created, it falls back to the main thread with periodic yields.
+const { parseFile, isResultsCsv } = __req("ui/parse-file.js");
+
+let worker = null;
+let workerFailed = false;
+const waiting = new Map(); // id -> { onProgress, resolve }
+
+function getWorker() {
+  if (worker || workerFailed) return worker;
+  try {
+    if (globalThis.__TABULAR_WORKER__) {
+      const url = URL.createObjectURL(new Blob([globalThis.__TABULAR_WORKER__], { type: 'text/javascript' }));
+      worker = new Worker(url);
+    } else {
+      worker = new Worker(new URL('./worker.js', document.baseURI), { type: 'module' });
+    }
+    worker.onmessage = e => {
+      const w = waiting.get(e.data.id);
+      if (!w) return;
+      if (e.data.run) { waiting.delete(e.data.id); w.resolve(e.data.run); }
+      else w.onProgress(e.data.progress);
+    };
+    worker.onerror = () => {
+      // Worker refused (e.g. blocked by the browser): finish pending files on the main thread.
+      workerFailed = true; worker = null;
+      for (const [, w] of waiting) w.fallback();
+      waiting.clear();
+    };
+  } catch {
+    workerFailed = true; worker = null;
+  }
+  return worker;
+}
+
+let seq = 0;
+function parseInBackground(file, onProgress) {
+  return new Promise(resolve => {
+    const id = ++seq;
+    const fallback = () => parseFile(file, onProgress, 8).then(resolve, err => resolve({ error: 'Could not read file: ' + err.message }));
+    const w = getWorker();
+    if (!w) { fallback(); return; }
+    waiting.set(id, { onProgress, resolve, fallback });
+    w.postMessage({ id, file });
+  });
+}
+
+// ---- collecting files ----------------------------------------------------------------
+
+function readEntries(dirEntry) {
+  const reader = dirEntry.createReader();
+  return new Promise(resolve => {
+    const all = [];
+    const next = () => reader.readEntries(batch => {
+      if (!batch.length) resolve(all); else { all.push(...batch); next(); }
+    }, () => resolve(all));
+    next();
+  });
+}
+
+async function walk(entry, out, failed) {
+  if (entry.isFile) {
+    if (/\.csv$/i.test(entry.name)) {
+      const file = await new Promise(res => entry.file(res, () => res(null)));
+      const path = entry.fullPath.replace(/^\//, '');
+      if (file) out.push({ file, path, fromFolder: path.includes('/') });
+      else failed.push(path);
+    }
+    return;
+  }
+  if (entry.isDirectory) {
+    for (const child of await readEntries(entry)) await walk(child, out, failed);
+  }
+}
+
+// Every .csv dropped, folders searched recursively.
+// Returns { items: [{ file, path, fromFolder }], failed: [path], dropped: n }.
+async function filesFromDrop(dataTransfer) {
+  const out = [], failed = [];
+  const list = [...(dataTransfer.items || [])].filter(i => i.kind === 'file');
+  // Entries must be taken synchronously, before the first await, or the list is emptied.
+  const entries = list.map(i => i.webkitGetAsEntry && i.webkitGetAsEntry()).filter(Boolean);
+  const files = [...(dataTransfer.files || [])];
+  if (entries.length) {
+    for (const e of entries) await walk(e, out, failed);
+  } else {
+    for (const f of files) if (/\.csv$/i.test(f.name)) out.push({ file: f, path: f.name, fromFolder: false });
+  }
+  return { items: out, failed, dropped: Math.max(entries.length, files.length) };
+}
+
+function filesFromPicker(fileList, fromFolder) {
+  const items = [...fileList].filter(f => /\.csv$/i.test(f.name))
+    .map(file => ({ file, path: file.webkitRelativePath || file.name, fromFolder }));
+  return { items, failed: [], dropped: fileList.length };
+}
+
+// Folder CSVs that are not JMeter results files (test data, etc.) are skipped, not failed.
+async function screen(items) {
+  const keep = [], skipped = [];
+  for (const it of items) {
+    if (!it.fromFolder || await isResultsCsv(it.file)) keep.push(it);
+    else skipped.push(it.path);
+  }
+  return { keep, skipped };
+}
+
+exports.parseInBackground = parseInBackground;
+exports.filesFromDrop = filesFromDrop;
+exports.filesFromPicker = filesFromPicker;
+exports.screen = screen;
+});
+__def("ui/clipboard.js", function (exports, __req) {
+// Writes styled HTML plus a plain-text TSV to the clipboard. The copy-event path works
+// from file:// and offline; navigator.clipboard.write is the fallback.
+const { wrapClipboardHtml } = __req("core/table-html.js");
+
+async function copyRich(html, text) {
+  const full = wrapClipboardHtml(html);
+  let ok = false;
+  const onCopy = e => {
+    e.clipboardData.setData('text/html', full);
+    e.clipboardData.setData('text/plain', text);
+    e.preventDefault();
+    ok = true;
+  };
+  document.addEventListener('copy', onCopy);
+  try { document.execCommand('copy'); } catch { ok = false; }
+  document.removeEventListener('copy', onCopy);
+  if (ok) return true;
+  if (navigator.clipboard && window.ClipboardItem) {
+    try {
+      await navigator.clipboard.write([new ClipboardItem({
+        'text/html': new Blob([full], { type: 'text/html' }),
+        'text/plain': new Blob([text], { type: 'text/plain' })
+      })]);
+      return true;
+    } catch { /* fall through */ }
+  }
+  return false;
+}
+
+exports.copyRich = copyRich;
+});
+__def("core/xlsx.js", function (exports, __req) {
+// Minimal .xlsx writer: one sheet per table, styled like the copied tables.
+// No dependencies; the zip is written with STORE (no compression).
+const { FIXED, cleanFont } = __req("core/table-html.js");
+
+// ---- zip ------------------------------------------------------------------------------
+const CRC = (() => {
+  const t = new Uint32Array(256);
+  for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; }
+  return t;
+})();
+function crc32(bytes) {
+  let c = 0xFFFFFFFF;
+  for (let i = 0; i < bytes.length; i++) c = CRC[(c ^ bytes[i]) & 0xFF] ^ (c >>> 8);
+  return (c ^ 0xFFFFFFFF) >>> 0;
+}
+
+function zipStore(files) { // [{ name, data: Uint8Array }]
+  const enc = new TextEncoder();
+  const parts = [], central = [];
+  let offset = 0;
+  const DOS_TIME = 0, DOS_DATE = (2026 - 1980) << 9 | 1 << 5 | 1;
+  for (const f of files) {
+    const name = enc.encode(f.name), crc = crc32(f.data), size = f.data.length;
+    const h = new DataView(new ArrayBuffer(30));
+    h.setUint32(0, 0x04034b50, true); h.setUint16(4, 20, true); h.setUint16(6, 0x0800, true);
+    h.setUint16(8, 0, true); h.setUint16(10, DOS_TIME, true); h.setUint16(12, DOS_DATE, true);
+    h.setUint32(14, crc, true); h.setUint32(18, size, true); h.setUint32(22, size, true);
+    h.setUint16(26, name.length, true); h.setUint16(28, 0, true);
+    parts.push(new Uint8Array(h.buffer), name, f.data);
+    const c = new DataView(new ArrayBuffer(46));
+    c.setUint32(0, 0x02014b50, true); c.setUint16(4, 20, true); c.setUint16(6, 20, true); c.setUint16(8, 0x0800, true);
+    c.setUint16(10, 0, true); c.setUint16(12, DOS_TIME, true); c.setUint16(14, DOS_DATE, true);
+    c.setUint32(16, crc, true); c.setUint32(20, size, true); c.setUint32(24, size, true);
+    c.setUint16(28, name.length, true); c.setUint32(42, offset, true);
+    central.push(new Uint8Array(c.buffer), name);
+    offset += 30 + name.length + size;
+  }
+  const cdSize = central.reduce((a, b) => a + b.length, 0);
+  const e = new DataView(new ArrayBuffer(22));
+  e.setUint32(0, 0x06054b50, true); e.setUint16(8, files.length, true); e.setUint16(10, files.length, true);
+  e.setUint32(12, cdSize, true); e.setUint32(16, offset, true);
+  const all = [...parts, ...central, new Uint8Array(e.buffer)];
+  const out = new Uint8Array(all.reduce((a, b) => a + b.length, 0));
+  let p = 0; for (const b of all) { out.set(b, p); p += b.length; }
+  return out;
+}
+
+// ---- workbook ---------------------------------------------------------------------------
+// Characters XML 1.0 can't carry are dropped (C0 controls except tab/LF/CR, U+FFFE, U+FFFF).
+const xml = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+  .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFE\uFFFF]/g, '');
+// Excel refuses a file with more than 32,767 characters in one cell.
+const CELL_MAX = 32767;
+function cellString(s) {
+  s = String(s);
+  if (s.length <= CELL_MAX) return s;
+  const t = s.slice(0, CELL_MAX);
+  return /[\uD800-\uDBFF]$/.test(t) ? t.slice(0, -1) : t;
+}
+const argb = hex => 'FF' + hex.replace('#', '').toUpperCase();
+const colName = i => { let s = ''; i++; while (i) { const m = (i - 1) % 26; s = String.fromCharCode(65 + m) + s; i = Math.floor((i - 1) / 26); } return s; };
+
+const KINDS = ['head', 'sub', 'label', 'body', 'num'];
+const FMTS = ['text', 'int', 'd1', 'pct2'];
+const NUMFMT_ID = { text: 49, int: 3, d1: 164, pct2: 10 };
+const xfIndex = (kind, f) => 1 + KINDS.indexOf(kind) * FMTS.length + FMTS.indexOf(f || 'text');
+
+function stylesXml(style) {
+  const font = xml(cleanFont(style.font)), size = Number(style.size) || 11;
+  const fonts = [
+    `<font><sz val="${size}"/><color rgb="FF000000"/><name val="${font}"/></font>`,
+    `<font><b/><sz val="${size}"/><color rgb="FF000000"/><name val="${font}"/></font>`,
+    `<font><b/><sz val="${size}"/><color rgb="${argb(FIXED.headText)}"/><name val="${font}"/></font>`
+  ];
+  const solid = c => `<fill><patternFill patternType="solid"><fgColor rgb="${argb(c)}"/><bgColor indexed="64"/></patternFill></fill>`;
+  const fills = ['<fill><patternFill patternType="none"/></fill>', '<fill><patternFill patternType="gray125"/></fill>',
+    solid(style.head), solid(FIXED.sub), solid(FIXED.label)];
+  const g = argb(FIXED.grid);
+  const border = `<border><left style="thin"><color rgb="${g}"/></left><right style="thin"><color rgb="${g}"/></right>` +
+    `<top style="thin"><color rgb="${g}"/></top><bottom style="thin"><color rgb="${g}"/></bottom><diagonal/></border>`;
+  const kindFont = { head: 2, sub: 1, label: 1, body: 0, num: 0 };
+  const kindFill = { head: 2, sub: 3, label: 4, body: 0, num: 0 };
+  const kindAlign = { head: 'center', sub: 'center', label: 'left', body: 'left', num: 'center' };
+  const xfs = ['<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'];
+  for (const k of KINDS) for (const f of FMTS) {
+    xfs.push(`<xf numFmtId="${NUMFMT_ID[f]}" fontId="${kindFont[k]}" fillId="${kindFill[k]}" borderId="1" xfId="0" ` +
+      `applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1">` +
+      `<alignment horizontal="${kindAlign[k]}" vertical="center"/></xf>`);
+  }
+  return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
+    '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
+    '<numFmts count="1"><numFmt numFmtId="164" formatCode="0.0"/></numFmts>' +
+    `<fonts count="${fonts.length}">${fonts.join('')}</fonts>` +
+    `<fills count="${fills.length}">${fills.join('')}</fills>` +
+    `<borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border>${border}</borders>` +
+    '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>' +
+    `<cellXfs count="${xfs.length}">${xfs.join('')}</cellXfs>` +
+    '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>' +
+    '</styleSheet>';
+}
+
+function sheetXml(table) {
+  // Place cells on a grid, honouring spans; spanned positions get styled empty cells.
+  const grid = [], merges = [], widths = [];
+  table.rows.forEach((row, ri) => {
+    grid[ri] = grid[ri] || [];
+    let ci = 0;
+    for (const c of row) {
+      while (grid[ri][ci] !== undefined) ci++;
+      const cs = c.cs || 1, rs = c.rs || 1;
+      for (let dr = 0; dr < rs; dr++) for (let dc = 0; dc < cs; dc++) {
+        grid[ri + dr] = grid[ri + dr] || [];
+        grid[ri + dr][ci + dc] = dr || dc ? { ...c, text: '', value: undefined, filler: true } : c;
+      }
+      if (cs > 1 || rs > 1) merges.push(`${colName(ci)}${ri + 1}:${colName(ci + cs - 1)}${ri + rs}`);
+      const w = cs === 1 ? String(c.text).length : 0;
+      widths[ci] = Math.max(widths[ci] || 8, w);
+      ci += cs;
+    }
+  });
+  const rows = grid.map((r, ri) => `<row r="${ri + 1}">` + r.map((c, ci) => {
+    const ref = colName(ci) + (ri + 1), s = xfIndex(c.kind, c.fmt);
+    if (c.filler || c.text === '') return `<c r="${ref}" s="${s}"/>`;
+    if (c.value !== undefined) return `<c r="${ref}" s="${s}"><v>${c.value}</v></c>`;
+    return `<c r="${ref}" s="${s}" t="inlineStr"><is><t xml:space="preserve">${xml(cellString(c.text))}</t></is></c>`;
+  }).join('') + '</row>').join('');
+  const cols = widths.map((w, i) => `<col min="${i + 1}" max="${i + 1}" width="${Math.min(80, w + 3)}" customWidth="1"/>`).join('');
+  return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
+    '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
+    '<sheetViews><sheetView workbookViewId="0" showGridLines="0"/></sheetViews>' +
+    `<cols>${cols}</cols><sheetData>${rows}</sheetData>` +
+    (merges.length ? `<mergeCells count="${merges.length}">${merges.map(m => `<mergeCell ref="${m}"/>`).join('')}</mergeCells>` : '') +
+    '</worksheet>';
+}
+
+// Excel sheet names: at most 31 characters, none of []:*?/\, unique ignoring case.
+function sheetNames(list) {
+  const used = new Set();
+  return list.map(t => {
+    const base = String(t).replace(/[\[\]:*?\/\\]/g, ' ').trim().slice(0, 31) || 'Sheet';
+    let name = base, n = 2;
+    while (used.has(name.toLowerCase())) { const suf = ' ' + n++; name = base.slice(0, 31 - suf.length) + suf; }
+    used.add(name.toLowerCase());
+    return name;
+  });
+}
+
+// sheets: [{ name, xml }] in tab order (names already made safe); styles: styles.xml text.
+function packageXlsx(sheets, styles) {
+  const enc = new TextEncoder();
+  const files = [
+    ['[Content_Types].xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
+      '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">' +
+      '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' +
+      '<Default Extension="xml" ContentType="application/xml"/>' +
+      '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>' +
+      '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>' +
+      sheets.map((_, i) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('') +
+      '</Types>'],
+    ['_rels/.rels', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
+      '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+      '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>' +
+      '</Relationships>'],
+    ['xl/workbook.xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
+      '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">' +
+      '<sheets>' + sheets.map((sh, i) => `<sheet name="${xml(sh.name)}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join('') + '</sheets></workbook>'],
+    ['xl/_rels/workbook.xml.rels', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
+      '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+      sheets.map((_, i) => `<Relationship Id="rId${i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i + 1}.xml"/>`).join('') +
+      `<Relationship Id="rId${sheets.length + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>` +
+      '</Relationships>'],
+    ['xl/styles.xml', styles],
+    ...sheets.map((sh, i) => [`xl/worksheets/sheet${i + 1}.xml`, sh.xml])
+  ];
+  return zipStore(files.map(([name, text]) => ({ name, data: enc.encode(text) })));
+}
+
+function buildXlsx(tables, style) {
+  const names = sheetNames(tables.map(t => t.sheet || t.title));
+  return packageXlsx(tables.map((t, i) => ({ name: names[i], xml: sheetXml(t) })), stylesXml(style));
+}
+
+exports.zipStore = zipStore;
+exports.xml = xml;
+exports.CELL_MAX = CELL_MAX;
+exports.cellString = cellString;
+exports.argb = argb;
+exports.colName = colName;
+exports.sheetNames = sheetNames;
+exports.packageXlsx = packageXlsx;
+exports.buildXlsx = buildXlsx;
+});
+__def("core/breakdown.js", function (exports, __req) {
+// The breakdown workbook: Error Details, one "API ART" sheet per run and, when asked for,
+// one "Tr ART" sheet per run. Layout copied from the team's Readings_Breakdown_Report_V1.xlsx:
+// - Error Details: per run a title row, Count | Request | Error, error type merged down its
+//   APIs, two empty rows between runs. Body in Calibri 11 with thin borders, as in the sample.
+// - API ART: every API, slowest average first; banded rows; zoom 85.
+// - Tr ART: Endpoint | "<n> Concurrent Users" over the per-run columns; zoom 115.
+// Header colour, font and size follow the chosen theme; the sample's sizes (14 / 12 / 9 for
+// a 14 pt theme) are kept as ratios.
+const { FIXED, COLUMNS, DEFAULT_DETAIL_COLS, cleanFont } = __req("core/table-html.js");
+const { naturalCompare } = __req("core/stats.js");
+const { xml, argb, colName, sheetNames, packageXlsx, cellString } = __req("core/xlsx.js");
+
+const BREAKDOWN_NAMES = { api: 'API_Breakdown', readings: 'Readings_Breakdown' };
+const EXCLUDED_SHEET = 'Excluded Errors';
+
+// view.excluded ([{ type, api, count }], raw JMeter names) grouped like Error Details:
+// largest type first, largest API first, ties by name.
+function groupExcluded(excluded) {
+  const m = new Map();
+  for (const e of excluded) {
+    let g = m.get(e.type);
+    if (!g) { g = { type: e.type, count: 0, apis: [] }; m.set(e.type, g); }
+    g.count += e.count; g.apis.push({ api: e.api, count: e.count });
+  }
+  return [...m.values()].map(g => ({ ...g, apis: g.apis.sort((a, b) => b.count - a.count || naturalCompare(a.api, b.api)) }))
+    .sort((a, b) => b.count - a.count || naturalCompare(a.type, b.type));
+}
+
+// ---- styles ------------------------------------------------------------------------------
+// A style is { font: { name, size, bold, color }, fill, border: { l, r, t, b }, h, v, wrap, fmt }.
+// Border sides are 'medium' (grid colour) or 'thin' (automatic colour), as in the sample.
+const FMT_ID = { General: 0, '#,##0': 3, '0.0': 164 };
+
+function styleBook() {
+  const fonts = ['<font><sz val="11"/><color rgb="FF000000"/><name val="Calibri"/><family val="2"/></font>'];
+  const fills = ['<fill><patternFill patternType="none"/></fill>', '<fill><patternFill patternType="gray125"/></fill>'];
+  const borders = ['<border><left/><right/><top/><bottom/><diagonal/></border>'];
+  const xfs = ['<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'];
+  const memo = new Map();
+  const add = (list, text) => { let i = list.indexOf(text); if (i < 0) { i = list.length; list.push(text); } return i; };
+  const side = (tag, kind) => !kind ? `<${tag}/>`
+    : kind === 'thin' ? `<${tag} style="thin"><color indexed="64"/></${tag}>`
+      : `<${tag} style="medium"><color rgb="${argb(FIXED.grid)}"/></${tag}>`;
+  function id(s) {
+    const key = JSON.stringify(s);
+    if (memo.has(key)) return memo.get(key);
+    const f = s.font;
+    const fontId = add(fonts, `<font>${f.bold ? '<b/>' : ''}<sz val="${f.size}"/><color rgb="${argb(f.color)}"/><name val="${xml(f.name)}"/></font>`);
+    const fillId = s.fill ? add(fills, `<fill><patternFill patternType="solid"><fgColor rgb="${argb(s.fill)}"/><bgColor indexed="64"/></patternFill></fill>`) : 0;
+    const b = s.border || {};
+    const borderId = add(borders, `<border>${side('left', b.l)}${side('right', b.r)}${side('top', b.t)}${side('bottom', b.b)}<diagonal/></border>`);
+    const align = (s.h ? ` horizontal="${s.h}"` : '') + (s.v ? ` vertical="${s.v}"` : '') + (s.wrap ? ' wrapText="1"' : '');
+    const xf = `<xf numFmtId="${FMT_ID[s.fmt || 'General']}" fontId="${fontId}" fillId="${fillId}" borderId="${borderId}" xfId="0"` +
+      ' applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1">' +
+      (align ? `<alignment${align}/>` : '') + '</xf>';
+    const i = add(xfs, xf);
+    memo.set(key, i);
+    return i;
+  }
+  const toXml = () => '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
+    '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
+    '<numFmts count="1"><numFmt numFmtId="164" formatCode="0.0"/></numFmts>' +
+    `<fonts count="${fonts.length}">${fonts.join('')}</fonts>` +
+    `<fills count="${fills.length}">${fills.join('')}</fills>` +
+    `<borders count="${borders.length}">${borders.join('')}</borders>` +
+    '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>' +
+    `<cellXfs count="${xfs.length}">${xfs.join('')}</cellXfs>` +
+    '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>' +
+    '</styleSheet>';
+  return { id, toXml };
+}
+
+// ---- sheet ---------------------------------------------------------------------------------
+// rows: [{ h?, cells: [cell] }], cell = null | { v?, s } (v number or string)
+function sheetXml(sheet, book) {
+  const rows = sheet.rows.map((r, ri) => {
+    if (!r) return '';
+    const attrs = r.h ? ` ht="${r.h}" customHeight="1"` : '';
+    const cells = r.cells.map((c, ci) => {
+      if (!c) return '';
+      const ref = colName(ci) + (ri + 1), s = book.id(c.s);
+      if (c.v === undefined || c.v === null || c.v === '' || (typeof c.v === 'number' && !Number.isFinite(c.v))) return `<c r="${ref}" s="${s}"/>`;
+      if (typeof c.v === 'number') return `<c r="${ref}" s="${s}"><v>${c.v}</v></c>`;
+      return `<c r="${ref}" s="${s}" t="inlineStr"><is><t xml:space="preserve">${xml(cellString(c.v))}</t></is></c>`;
+    }).join('');
+    return `<row r="${ri + 1}"${attrs}>${cells}</row>`;
+  }).join('');
+  const cols = sheet.widths.map((w, i) => `<col min="${i + 1}" max="${i + 1}" width="${round2(w)}" customWidth="1"/>`).join('');
+  const zoom = sheet.zoom ? ` zoomScale="${sheet.zoom}" zoomScaleNormal="${sheet.zoom}"` : '';
+  return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
+    '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
+    `<sheetViews><sheetView workbookViewId="0"${zoom}/></sheetViews>` +
+    '<sheetFormatPr defaultRowHeight="14.4"/>' +
+    `<cols>${cols}</cols><sheetData>${rows}</sheetData>` +
+    (sheet.merges.length ? `<mergeCells count="${sheet.merges.length}">${sheet.merges.map(m => `<mergeCell ref="${m}"/>`).join('')}</mergeCells>` : '') +
+    '<pageMargins left="0.7" right="0.7" top="0.75" bottom="0.75" header="0.3" footer="0.3"/>' +
+    '</worksheet>';
+}
+
+const round1 = n => Math.round(n * 10) / 10;
+const round2 = n => Math.round(n * 100) / 100;
+// Row height that fits one line of text at this size (22.2 pt for 14 pt, as in the sample).
+const lineH = size => Math.max(15, round1(size * 22.2 / 14));
+// Column width units per character, calibrated on the sample: Sakkal Majalla 14 pt ~0.9,
+// Calibri 11 pt ~0.87.
+const perChar = (font, size) => (/sakkal/i.test(font) ? 0.9 / 14 : 0.87 / 11) * size;
+const clamp = (n, lo, hi) => Math.min(hi, Math.max(lo, n));
+const longest = (list, min = 0) => list.reduce((m, s) => Math.max(m, String(s).length), min);
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+// "1 Oct 2026 (9:59 - 10:09 PM)" in this computer's time zone.
+function runWindow(startMs, endMs) {
+  const a = new Date(startMs), b = new Date(endMs);
+  const day = d => `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+  const hm = d => `${d.getHours() % 12 || 12}:${String(d.getMinutes()).padStart(2, '0')}`;
+  const ap = d => (d.getHours() < 12 ? 'AM' : 'PM');
+  if (day(a) !== day(b)) return `${day(a)} (${hm(a)} ${ap(a)}) - ${day(b)} (${hm(b)} ${ap(b)})`;
+  return ap(a) === ap(b) ? `${day(a)} (${hm(a)} - ${hm(b)} ${ap(b)})` : `${day(a)} (${hm(a)} ${ap(a)} - ${hm(b)} ${ap(b)})`;
+}
+
+// ---- workbook --------------------------------------------------------------------------------
+// runs: [{ label, start, end, apis, errors, transactions, excluded, removedTx }] in display
+//   order, where label is "50 vUsers", apis comes from apiBreakdown(), errors from
+//   errorDetails(), and transactions, excluded and removedTx from the run's view.
+// options: { style, transactions: boolean, detailCols, exclusions: boolean }
+// Returns { name, bytes, sheets }.
+function buildBreakdown(runs, { style, transactions = false, detailCols = DEFAULT_DETAIL_COLS, exclusions = false } = {}) {
+  const font = cleanFont(style.font), size = Number(style.size) || 11;
+  const subSize = Math.round(size * 12 / 14), bodySize = Math.max(8, Math.round(size * 9 / 14));
+  const grid = 'medium';
+  const head = (border = { l: grid, r: grid, t: grid, b: grid }) => ({
+    font: { name: font, size, bold: true, color: FIXED.headText }, fill: style.head, border, h: 'center', v: 'center', wrap: true
+  });
+  const sheets = [];
+
+  // Error Details and Excluded Errors share one layout: per run a title row, Count | Request |
+  // Error, the error type merged down its APIs, two empty rows between runs.
+  const thin = { l: 'thin', r: 'thin', t: 'thin', b: 'thin' };
+  const cal = { name: 'Calibri', size: 11, color: FIXED.text };
+  const sCount = { font: cal, border: thin, h: 'center' };
+  const sApi = { font: cal, border: thin };
+  const sType = { font: cal, border: thin, h: 'center', v: 'center' };
+  const sFootLabel = { font: { ...cal, bold: true }, border: thin };
+  const errorSheet = (name, blocks) => {
+    const rows = [], merges = [];
+    const apis = [], types = [];
+    blocks.forEach((b, i) => {
+      if (i) rows.push(null, null);
+      const top = rows.length + 1;
+      rows.push({ h: lineH(size), cells: [{ v: `${b.label} - ${runWindow(b.start, b.end)}`, s: head() }, { s: head() }, { s: head() }] });
+      merges.push(`A${top}:C${top}`);
+      rows.push({ h: lineH(size), cells: ['Count', 'Request', 'Error'].map(v => ({ v, s: head() })) });
+      for (const g of b.groups) {
+        const first = rows.length + 1;
+        types.push(g.type);
+        g.apis.forEach((a, k) => {
+          apis.push(a.api);
+          rows.push({ cells: [{ v: a.count, s: sCount }, { v: a.api, s: sApi }, k ? { s: sType } : { v: g.type, s: sType }] });
+        });
+        if (g.apis.length > 1) merges.push(`C${first}:C${first + g.apis.length - 1}`);
+      }
+      for (const [label, n] of b.footer || []) {
+        const r = rows.length + 1;
+        rows.push({ cells: [{ v: n, s: sCount }, { v: label, s: sFootLabel }, { s: sApi }] });
+        merges.push(`B${r}:C${r}`);
+      }
+    });
+    const u = perChar(font, size) / 0.9;
+    sheets.push({
+      name, rows, merges,
+      widths: [Math.max(7.55, 7.55 * u), clamp(longest(apis, 7) * 0.87 + 2, 20, 200), clamp(longest(types, 5) * 0.87 + 4, 36.66, 100)]
+    });
+  };
+
+  const withErrors = runs.filter(r => r.errors.length);
+  if (withErrors.length) errorSheet('Error Details', withErrors.map(r => ({ ...r, groups: r.errors })));
+
+  // API ART, one sheet per run
+  const pc = perChar(font, size), u = pc / 0.9;
+  const API_HEAD = ['API', 'Passed Count', 'Error Count', 'ART (Sec)', '90th Percentile (Sec)', '95th Percentile (Sec)', '99th Percentile (Sec)'];
+  const apiWidthsBase = [6.78, 6.22, 6.11, 14.33, 14.33, 14.33];
+  for (const r of runs) {
+    const rows = [{ h: round1(size * 43.8 / 14), cells: API_HEAD.map((v, i) => ({ v, s: head({ l: i ? null : grid, r: grid, t: grid, b: grid }) })) }];
+    r.apis.forEach((a, k) => {
+      const fill = k % 2 ? FIXED.label : null;
+      const cell = (v, left, fmt) => ({
+        v, s: { font: { name: font, size, color: FIXED.text }, fill, border: { l: left ? grid : null, r: grid, b: grid },
+          h: left ? 'left' : 'center', v: 'center', wrap: true, fmt }
+      });
+      rows.push({ h: lineH(size), cells: [cell(a.label, true), cell(a.passed, false, '#,##0'), cell(a.errors, false, '#,##0'),
+        cell(a.art, false, '0.0'), cell(a.p90, false, '0.0'), cell(a.p95, false, '0.0'), cell(a.p99, false, '0.0')] });
+    });
+    const digits = longest(r.apis.flatMap(a => [a.passed.toLocaleString('en-US'), a.errors.toLocaleString('en-US')]), 1);
+    sheets.push({
+      name: `${r.label.replace(/vUsers/, 'Users')} API ART`, rows, merges: [], zoom: 85,
+      widths: [clamp(longest(r.apis.map(a => a.label), 10) * pc + 1, 10, 255),
+        ...apiWidthsBase.map((w, i) => (i < 2 ? Math.max(w * u, digits * pc * 1.1 + 1.5) : w * u))]
+    });
+  }
+
+  // Tr ART, one sheet per run with transactions
+  if (transactions) {
+    const cols = COLUMNS.filter(c => detailCols.includes(c.key));
+    const use = cols.length ? cols : COLUMNS.filter(c => DEFAULT_DETAIL_COLS.includes(c.key));
+    for (const r of runs) {
+      if (!r.transactions.length) continue;
+      const n = use.length;
+      const rows = [
+        { h: lineH(size), cells: [{ v: 'Endpoint', s: head() }, ...use.map((_, i) => (i ? { s: head() } : { v: r.label.replace(/vUsers/, 'Concurrent Users'), s: head() }))] },
+        { h: lineH(subSize), cells: [{ s: head({ l: grid, r: grid, b: grid }) }, ...use.map(c => ({
+          v: c.label, s: { font: { name: font, size: subSize, bold: true, color: FIXED.text }, fill: FIXED.sub, border: { r: grid, b: grid }, h: 'center', v: 'center', wrap: true }
+        }))] }
+      ];
+      const body = (v, first, fmt) => ({ v, s: { font: { name: font, size: bodySize, color: FIXED.text }, border: { l: first ? grid : null, r: grid, b: grid }, h: first ? null : 'center', v: 'center', fmt } });
+      for (const t of r.transactions) {
+        rows.push({ h: lineH(bodySize), cells: [body(t.label, true), ...use.map(c => body(t[c.key], false, c.f === 'int' ? 'General' : '0.0'))] });
+      }
+      const pb = perChar(font, bodySize), ps = perChar(font, subSize);
+      sheets.push({
+        name: `${r.label.replace(/vUsers/, 'Users')} Tr ART`, rows, zoom: 115,
+        merges: ['A1:A2', ...(n > 1 ? [`B1:${colName(n)}1`] : [])],
+        widths: [clamp(longest(r.transactions.map(t => t.label), 8) * pb + 2, 10, 255), ...use.map(c => Math.max(5, c.label.length * ps + 1.5))]
+      });
+    }
+  }
+
+  // Excluded Errors: what was taken out of each run, under the original JMeter names.
+  if (exclusions) {
+    const withExcluded = runs.filter(r => r.excluded && r.excluded.length);
+    if (withExcluded.length) errorSheet(EXCLUDED_SHEET, withExcluded.map(r => ({
+      ...r, groups: groupExcluded(r.excluded),
+      footer: [['Requests removed', r.excluded.reduce((a, e) => a + e.count, 0)], ['Transactions removed', r.removedTx || 0]]
+    })));
+  }
+
+  const hasTx = sheets.some(s => / Tr ART$/.test(s.name));
+  const names = sheetNames(sheets.map(s => s.name));
+  const book = styleBook();
+  const parts = sheets.map((s, i) => ({ name: names[i], xml: sheetXml(s, book) }));
+  return { name: (hasTx ? BREAKDOWN_NAMES.readings : BREAKDOWN_NAMES.api) + '.xlsx', bytes: packageXlsx(parts, book.toXml()), sheets: names };
+}
+
+exports.BREAKDOWN_NAMES = BREAKDOWN_NAMES;
+exports.EXCLUDED_SHEET = EXCLUDED_SHEET;
+exports.groupExcluded = groupExcluded;
+exports.runWindow = runWindow;
+exports.buildBreakdown = buildBreakdown;
+});
+__def("core/themes.js", function (exports, __req) {
+// Saved table themes: { name, head, font, size }. Built-ins come from PRESETS and can't
+// be edited or deleted. Pure functions; storage lives in the UI layer.
+const { PRESETS } = __req("core/table-html.js");
+
+const BUILT_IN = Object.entries(PRESETS).map(([name, p]) => ({ name, ...p, builtIn: true }));
+const HEX = /^#[0-9a-f]{6}$/i;
+
+function normHex(v) {
+  let s = String(v || '').trim();
+  if (s && s[0] !== '#') s = '#' + s;
+  return HEX.test(s) ? s.toUpperCase() : null;
+}
+
+// Returns { theme } or { errors: { field: message } }. `others` = saved themes except the one being edited.
+function validateTheme(input, others = []) {
+  const errors = {};
+  const name = String(input.name || '').trim().replace(/\s+/g, ' ');
+  const head = normHex(input.head);
+  const font = String(input.font || '').replace(/["'<>;{}\\]/g, '').trim();
+  const size = Number(input.size);
+  if (!name) errors.name = 'Name is required';
+  else if (name.length > 40) errors.name = '40 characters at most';
+  else if ([...BUILT_IN, ...others].some(t => t.name.toLowerCase() === name.toLowerCase())) errors.name = 'A theme with this name exists';
+  if (!head) errors.head = 'Use a 6-digit hex colour, e.g. #B68A35';
+  if (!font) errors.font = 'Font is required';
+  if (!Number.isInteger(size) || size < 6 || size > 48) errors.size = 'Whole points, 6 to 48';
+  return Object.keys(errors).length ? { errors } : { theme: { name, head, font, size } };
+}
+
+function exportThemes(themes) {
+  return JSON.stringify({ tool: 'Tabular', type: 'themes', version: 1, themes: themes.map(({ name, head, font, size }) => ({ name, head, font, size })) }, null, 2);
+}
+
+// Merges an export file into the saved list. Same name (case-insensitive) replaces.
+// Returns { themes, added, replaced, rejected } or { error }.
+function importThemes(text, saved) {
+  let data;
+  try { data = JSON.parse(text); } catch { return { error: 'Not a valid JSON file' }; }
+  const list = Array.isArray(data) ? data : data && Array.isArray(data.themes) ? data.themes : null;
+  if (!list) return { error: 'No themes found in this file' };
+  const out = [...saved];
+  let added = 0, replaced = 0, rejected = 0;
+  for (const raw of list) {
+    if (!raw || typeof raw !== 'object') { rejected++; continue; }
+    const name = String(raw.name || '').trim().toLowerCase();
+    const i = out.findIndex(t => t.name.toLowerCase() === name);
+    const r = validateTheme(raw, out.filter((_, j) => j !== i));
+    if (r.errors) { rejected++; continue; }
+    if (i >= 0) { out[i] = r.theme; replaced++; } else { out.push(r.theme); added++; }
+  }
+  return { themes: out, added, replaced, rejected };
+}
+
+function sameLook(a, b) {
+  return !!a && !!b && a.head.toUpperCase() === b.head.toUpperCase() && a.font === b.font && Number(a.size) === Number(b.size);
+}
+
+exports.BUILT_IN = BUILT_IN;
+exports.normHex = normHex;
+exports.validateTheme = validateTheme;
+exports.exportThemes = exportThemes;
+exports.importThemes = importThemes;
+exports.sameLook = sameLook;
+});
+__def("ui/icons.js", function (exports, __req) {
+// Thin-stroke line icons (lucide style), 24 viewBox, stroke = currentColor.
+const svg = (d, size = 16) =>
+  `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+
+const icon = {
+  file: s => svg('<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/>', s),
+  folder: s => svg('<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>', s),
+  x: s => svg('<path d="M18 6 6 18M6 6l12 12"/>', s),
+  copy: s => svg('<rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"/>', s),
+  check: s => svg('<path d="M20 6 9 17l-5-5"/>', s),
+  alert: s => svg('<path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/>', s),
+  download: s => svg('<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5M12 15V3"/>', s),
+  minus: s => svg('<path d="M5 12h14"/>', s),
+  plus: s => svg('<path d="M12 5v14M5 12h14"/>', s),
+  sheet: s => svg('<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 9v12"/>', s),
+  undo: s => svg('<path d="M3 7v6h6"/><path d="M3 13a9 9 0 1 0 3-7.7L3 8"/>', s)
+};
+
+// crop = true trims the 64 box to the chip (favicon); the topbar uses the full box, as Commandeer does.
+const LOGO = (size = 32, crop = true) =>
+  `<svg width="${size}" height="${size}" viewBox="${crop ? '8 8 48 48' : '0 0 64 64'}" aria-hidden="true">` +
+  '<rect x="8" y="8" width="48" height="48" rx="13" fill="var(--accent)"/>' +
+  '<rect x="18" y="18" width="28" height="28" rx="4.5" fill="var(--bg)"/>' +
+  [[21, 27], [33.5, 27], [21, 36.25], [33.5, 36.25]]
+    .map(([x, y]) => `<rect x="${x}" y="${y}" width="9.5" height="6.75" rx="1.2" fill="var(--accent)"/>`).join('') +
+  '</svg>';
+
+exports.icon = icon;
+exports.LOGO = LOGO;
+});
+__def("ui/app.js", function (exports, __req) {
+const { computeTables, errorGroups, exclusionKey, defaultSetMinutes, apiBreakdown, errorDetails } = __req("core/tables.js");
+const { PRESETS, COLUMNS, DEFAULT_DETAIL_COLS, DEFAULT_MATRIX_COLS, summaryTable, matrixTable, detailTable, errorTable, tableHtml, tableTsv, headingHtml, fmt } = __req("core/table-html.js");
+const { parseInBackground, filesFromDrop, filesFromPicker, screen } = __req("ui/loader.js");
+const { copyRich } = __req("ui/clipboard.js");
+const { buildXlsx } = __req("core/xlsx.js");
+const { buildBreakdown, BREAKDOWN_NAMES } = __req("core/breakdown.js");
+const { BUILT_IN, validateTheme, exportThemes, importThemes, sameLook, normHex } = __req("core/themes.js");
+const { icon, LOGO } = __req("ui/icons.js");
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+// ---- state ------------------------------------------------------------------------------
+const STYLE_KEY = 'tabular.style.v1';
+function loadStyle() {
+  try {
+    const s = JSON.parse(localStorage.getItem(STYLE_KEY));
+    if (s && /^#[0-9a-f]{6}$/i.test(s.head) && s.font && s.size) {
+      if (s.theme === undefined) { const m = BUILT_IN.find(t => sameLook(t, s)); s.theme = m ? m.name : ''; }
+      return s;
+    }
+  } catch { /* storage unavailable */ }
+  return { theme: 'Gold', ...PRESETS.Gold };
+}
+const THEMES_KEY = 'tabular.themes.v1';
+function loadThemes() {
+  try {
+    const list = JSON.parse(localStorage.getItem(THEMES_KEY));
+    if (!Array.isArray(list)) return [];
+    const out = [];
+    for (const t of list) { const r = validateTheme(t, out); if (r.theme) out.push(r.theme); }
+    return out;
+  } catch { return []; }
+}
+function saveThemes() { try { localStorage.setItem(THEMES_KEY, JSON.stringify(state.themes)); } catch { /* ignore */ } }
+const allThemes = () => [...BUILT_IN, ...state.themes];
+const findTheme = name => allThemes().find(t => t.name === name);
+
+const UI_KEY = 'tabular.ui.v1';
+function loadUi() { try { return JSON.parse(localStorage.getItem(UI_KEY)) || {}; } catch { return {}; } }
+function saveUi() { try { localStorage.setItem(UI_KEY, JSON.stringify({ errColWidth: state.errColWidth })); } catch { /* ignore */ } }
+const PREFS_KEY = 'tabular.prefs.v1';
+const DEFAULT_PREFS = () => ({ durationMode: 'set', detailCols: [...DEFAULT_DETAIL_COLS], matrixCols: [...DEFAULT_MATRIX_COLS], breakdownTx: false, breakdownExcl: true, detailRows: 'all', topN: 10 });
+const TOP_MAX = 999;
+const validTop = n => Number.isInteger(n) && n >= 1 && n <= TOP_MAX;
+function loadPrefs() {
+  const d = DEFAULT_PREFS();
+  try {
+    const p = JSON.parse(localStorage.getItem(PREFS_KEY)) || {};
+    const valid = a => Array.isArray(a) && a.length && a.every(k => COLUMNS.some(c => c.key === k));
+    return {
+      durationMode: p.durationMode === 'measured' ? 'measured' : 'set',
+      detailCols: valid(p.detailCols) ? p.detailCols : d.detailCols,
+      matrixCols: valid(p.matrixCols) ? p.matrixCols : d.matrixCols,
+      breakdownTx: p.breakdownTx === true,
+      breakdownExcl: p.breakdownExcl !== false,
+      detailRows: p.detailRows === 'top' ? 'top' : 'all',
+      topN: validTop(p.topN) ? p.topN : d.topN
+    };
+  } catch { return d; }
+}
+function savePrefs() {
+  try { localStorage.setItem(PREFS_KEY, JSON.stringify({ durationMode: state.durationMode, detailCols: state.detailCols, matrixCols: state.matrixCols, breakdownTx: state.breakdownTx, breakdownExcl: state.breakdownExcl, detailRows: state.detailRows, topN: state.topN })); } catch { /* ignore */ }
+}
+function saveStyle() { try { localStorage.setItem(STYLE_KEY, JSON.stringify(state.style)); } catch { /* ignore */ } }
+
+const state = {
+  runs: [],            // { id, fileName, status, progress, run, error, vUsers }
+  skipped: [],
+  ...loadPrefs(),       // durationMode, detailCols, matrixCols, breakdownTx, detailRows, topN (persisted)
+  setMinutes: null,    // null = automatic default
+  style: loadStyle(),   // { theme, head, font, size }
+  themes: loadThemes(), // saved themes
+  themeEdit: null,      // null | { index } (index -1 = new)
+  undoTheme: null,
+  view: 'tables',
+  excluded: new Set(),
+  rename: new Map(),
+  notice: null,        // last intake problem, shown under Runs
+  expanded: new Set(), // error types opened in the Errors view
+  errColWidth: loadUi().errColWidth || null // px, or null = fit automatically
+};
+let runSeq = 0;
+
+// ---- derived ----------------------------------------------------------------------------
+function readyRuns() {
+  return state.runs.filter(r => r.status === 'ready')
+    .sort((a, b) => a.vUsers - b.vUsers || a.run.start - b.run.start);
+}
+
+function runLabels(list) {
+  const counts = new Map(), seen = new Map();
+  list.forEach(r => counts.set(r.vUsers, (counts.get(r.vUsers) || 0) + 1));
+  return list.map(r => {
+    const n = counts.get(r.vUsers);
+    if (n === 1) return `${r.vUsers} vUsers`;
+    const k = (seen.get(r.vUsers) || 0) + 1; seen.set(r.vUsers, k);
+    return `${r.vUsers} vUsers (${ordinal(k)})`;
+  });
+}
+const ordinal = n => n + (n % 100 >= 11 && n % 100 <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] || 'th');
+
+function setMinutes(list) {
+  return state.setMinutes ?? (list.length ? defaultSetMinutes(list) : 10);
+}
+
+function compute() {
+  const list = readyRuns();
+  if (!list.length) return null;
+  const labels = runLabels(list);
+  const base = { durationMode: state.durationMode, setSeconds: setMinutes(list) * 60 };
+  const input = list.map(r => ({ id: r.id, run: r.run, vUsers: r.vUsers }));
+  const result = computeTables(input, { ...base, excluded: state.excluded, rename: state.rename });
+  const before = computeTables(input, base);
+  const tables = [summaryTable(result.views, labels)];
+  if (result.matrix.length) tables.push(matrixTable(result, labels, state.matrixCols));
+  const top = state.detailRows === 'top' ? state.topN : null;
+  result.views.forEach((v, i) => { if (v.transactions.length) tables.push(detailTable(v, labels[i], state.detailCols, top)); });
+  result.views.forEach((v, i) => { const t = errorTable(v, labels[i]); if (t) tables.push(t); });
+  return { list, labels, result, before, tables };
+}
+
+// ---- intake -------------------------------------------------------------------------------
+async function addItems({ items, failed, dropped }) {
+  const { keep, skipped } = await screen(items);
+  state.skipped.push(...skipped);
+  state.notice = null;
+  if (failed.length) state.notice = `Could not read ${failed.length} file(s): ${failed.join(', ')}. If they are in OneDrive, make sure they are downloaded ("Always keep on this device").`;
+  else if (dropped && !keep.length && !skipped.length) state.notice = 'No .csv files found in what was added.';
+  for (const { file, path } of keep) {
+    const entry = {
+      id: 'r' + (++runSeq), fileName: path || file.name,
+      status: 'loading', progress: 0, run: null, error: null, vUsers: 0
+    };
+    state.runs.push(entry);
+    parseInBackground(file, p => { entry.progress = p; updateProgress(entry); }).then(run => {
+      if (!state.runs.includes(entry)) return;
+      if (run.error) { entry.status = 'error'; entry.error = run.error; }
+      else { entry.status = 'ready'; entry.run = run; entry.vUsers = run.vUsers; }
+      renderRuns(); renderOutput();
+    });
+  }
+  renderRuns(); renderOutput();
+}
+
+// ---- form pane -----------------------------------------------------------------------------
+function fmtDuration(sec) {
+  const s = Math.round(sec), m = Math.floor(s / 60);
+  return `${m}:${String(s % 60).padStart(2, '0')}`;
+}
+function fmtStart(ms) {
+  const d = new Date(ms);
+  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) + ' ' +
+    d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false });
+}
+
+function renderRuns() {
+  const box = $('runs');
+  const list = readyRuns();
+  const labels = runLabels(list);
+  const order = [...list, ...state.runs.filter(r => r.status !== 'ready')];
+  if (!order.length) { box.innerHTML = '<div class="none">No runs loaded</div>'; }
+  else {
+    box.innerHTML = order.map(r => {
+      const i = list.indexOf(r);
+      let sub = '';
+      if (r.status === 'ready') {
+        const dup = labels[i].includes('(');
+        sub = `${fmtStart(r.run.start)} · ${fmtDuration(r.run.measuredSec)}` +
+          (dup ? ` · <span class="flag">${esc(labels[i].replace(/^.*\(/, '(').replace(')', ''))})</span>` : '') +
+          (r.run.badRows ? ` · <span class="flag">${r.run.badRows} bad rows skipped</span>` : '');
+      } else if (r.status === 'loading') {
+        sub = `<span class="pct">${Math.round(r.progress * 100)}%</span><div class="bar"><i style="width:${r.progress * 100}%"></i></div>`;
+      } else {
+        sub = `<span class="flag">${esc(r.error)}</span>`;
+      }
+      const vu = r.status === 'ready'
+        ? `<div class="vu"><input data-vu="${r.id}" value="${r.vUsers}" inputmode="numeric" aria-label="vUsers for ${esc(r.fileName)}"><span class="mono">vU</span></div>`
+        : '<div></div>';
+      return `<div class="run" data-id="${r.id}">${vu}<div class="info"><div class="fname" title="${esc(r.fileName)}">${esc(r.fileName)}</div><div class="sub">${sub}</div></div>` +
+        `<button type="button" class="icon-btn" data-remove="${r.id}" aria-label="Remove ${esc(r.fileName)}">${icon.x(14)}</button></div>`;
+    }).join('');
+  }
+  const n = list.length;
+  $('pickLabel').textContent = n ? `${n} summary.csv` : '';
+  const note = $('runsNote');
+  if (state.notice) {
+    note.hidden = false; note.className = 'note err'; note.textContent = state.notice;
+  } else if (state.skipped.length) {
+    note.hidden = false; note.className = 'note';
+    note.textContent = `Skipped ${state.skipped.length} CSV that are not JMeter results: ${state.skipped.join(', ')}`;
+  } else note.hidden = true;
+  renderThroughput();
+}
+
+function updateProgress(entry) {
+  const row = document.querySelector(`.run[data-id="${entry.id}"]`);
+  if (!row) return;
+  const pct = row.querySelector('.pct'), bar = row.querySelector('.bar i');
+  if (pct) pct.textContent = Math.round(entry.progress * 100) + '%';
+  if (bar) bar.style.width = entry.progress * 100 + '%';
+}
+
+function setSeg(el, value) {
+  el.querySelectorAll('button').forEach(b => b.setAttribute('aria-checked', String(b.dataset.v === value)));
+}
+
+function renderThroughput() {
+  setSeg($('durSeg'), state.durationMode);
+  const on = state.durationMode === 'set';
+  $('minStep').classList.toggle('off', !on);
+  $('minStep').querySelectorAll('button,input').forEach(e => { e.disabled = !on; });
+  if (document.activeElement !== $('minutes')) $('minutes').value = setMinutes(readyRuns());
+}
+
+function renderRows() {
+  setSeg($('rowsSeg'), state.detailRows);
+  $('topField').hidden = state.detailRows !== 'top';
+  if (document.activeElement !== $('topN')) $('topN').value = state.topN;
+}
+
+function renderCols() {
+  $('breakdownTx').checked = state.breakdownTx;
+  $('breakdownExcl').checked = state.breakdownExcl;
+  renderRows();
+  for (const [id, key] of [['detailCols', 'detailCols'], ['matrixCols', 'matrixCols']]) {
+    $(id).innerHTML = COLUMNS.map(c =>
+      `<label class="check"><input type="checkbox" data-cols="${key}" value="${c.key}"${state[key].includes(c.key) ? ' checked' : ''}>${esc(c.label)}</label>`
+    ).join('');
+  }
+}
+
+// ---- settings drawer ---------------------------------------------------------------------
+function openDrawer() {
+  $('scrim').hidden = false; $('drawer').hidden = false;
+  const first = [...$('drawer').querySelectorAll('.drawer-b button, .drawer-b input, .drawer-b select')]
+    .find(el => !el.disabled && el.offsetParent !== null);
+  if (first) first.focus();
+}
+function closeDrawer() {
+  if ($('drawer').hidden) return;
+  $('scrim').hidden = true; $('drawer').hidden = true;
+  $('gear').focus();
+}
+
+function renderStyle() {
+  const s = state.style;
+  const theme = findTheme(s.theme);
+  const opt = t => `<option value="${esc(t.name)}"${theme && t.name === theme.name ? ' selected' : ''}>${esc(t.name)}</option>`;
+  $('themeSel').innerHTML = (theme ? '' : '<option value="" selected>Custom</option>') +
+    `<optgroup label="Built-in">${BUILT_IN.map(opt).join('')}</optgroup>` +
+    (state.themes.length ? `<optgroup label="Saved">${state.themes.map(opt).join('')}</optgroup>` : '');
+  const modified = !!theme && !sameLook(theme, s);
+  $('themeMod').hidden = !modified;
+  $('themeRevert').hidden = !modified;
+  $('headPick').value = s.head;
+  if (document.activeElement !== $('headHex')) $('headHex').value = s.head.toUpperCase();
+  if (document.activeElement !== $('font')) $('font').value = s.font;
+  if (document.activeElement !== $('size')) $('size').value = s.size;
+  renderThemeList();
+}
+
+function renderThemeList() {
+  const cur = state.style.theme;
+  $('themeList').innerHTML = allThemes().map((t, i) => {
+    const si = i - BUILT_IN.length;
+    const acts = t.builtIn ? '<span class="tag">built-in</span>' :
+      `<div class="acts"><button type="button" class="icon-btn" data-tedit="${si}" aria-label="Edit ${esc(t.name)}">` +
+      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></button>' +
+      `<button type="button" class="icon-btn" data-tdel="${si}" aria-label="Delete ${esc(t.name)}">${icon.x(14)}</button></div>`;
+    return `<div class="trow${t.name === cur ? ' current' : ''}"><span class="sw" style="background:${t.head}"></span>` +
+      `<div class="tn"><b>${esc(t.name)}</b><span>${esc(t.head)} · ${esc(t.font)} · ${t.size}pt</span></div>${acts}</div>`;
+  }).join('');
+  const editing = state.themeEdit !== null;
+  $('themeForm').hidden = !editing;
+  $('themeAdd').hidden = editing;
+}
+
+function openThemeForm(index) {
+  state.themeEdit = { index };
+  const t = index >= 0 ? state.themes[index] : { name: '', head: state.style.head, font: state.style.font, size: state.style.size };
+  $('tfName').value = t.name; $('tfHex').value = t.head.toUpperCase(); $('tfPick').value = t.head;
+  $('tfFont').value = t.font; $('tfSize').value = t.size;
+  $('themeForm').querySelectorAll('[data-err]').forEach(e => { e.hidden = true; });
+  $('themeForm').querySelectorAll('input').forEach(e => e.classList.remove('bad'));
+  $('tfSave').textContent = index >= 0 ? 'Save changes' : 'Save theme';
+  themeNote('');
+  renderThemeList();
+  $('tfName').focus();
+}
+
+function themeNote(text, undo) {
+  const n = $('themeNote');
+  n.hidden = !text;
+  n.innerHTML = esc(text) + (undo ? ' <button type="button" class="linkbtn" id="themeUndo">Undo</button>' : '');
+}
+
+function applyTheme(name) {
+  const t = findTheme(name);
+  if (!t) return;
+  state.style = { theme: t.name, head: t.head, font: t.font, size: t.size };
+  $('hexErr').hidden = true; $('headHex').classList.remove('bad');
+  saveStyle(); renderStyle(); renderOutput();
+}
+
+// ---- output pane ----------------------------------------------------------------------------
+let current = null;
+let errTypes = [];  // Errors view: [{ type, total, apis: [{ api, counts, keys, total }] }]
+let errRows = [];   // Errors view: the API rows currently shown, by index
+
+function renderMeta() {
+  const m = $('meta');
+  if (!current) { m.innerHTML = ''; return; }
+  const { list, result } = current;
+  const total = result.views.reduce((a, v) => a + v.requests, 0);
+  const excludedN = result.views.reduce((a, v) => a + v.excluded.reduce((x, e) => x + e.count, 0), 0);
+  const parts = [
+    `<span><span class="n">${list.length}</span> runs</span>`,
+    `<span><span class="n">${fmt.int(total)}</span> requests</span>`,
+    `<span>${state.durationMode === 'set' ? `set ${setMinutes(list)} min` : 'measured'}</span>`
+  ];
+  if (state.detailRows === 'top') parts.push(`<span>top <span class="n">${state.topN}</span> per run</span>`);
+  if (excludedN) parts.push(`<span><span class="n">${fmt.int(excludedN)}</span> excluded</span>`);
+  if (result.unnumbered.length) parts.push(`<span class="flag" title="${esc(result.unnumbered.join('\n'))}">order not guaranteed: ${result.unnumbered.length} unnumbered</span>`);
+  const noTx = current.labels.filter((l, i) => !result.views[i].transactions.length);
+  if (noTx.length) parts.push(`<span class="flag">no transactions: ${esc(noTx.join(', '))}</span>`);
+  const dupes = current.labels.filter(l => l.includes('(')).length;
+  if (dupes) parts.push(`<span class="flag">duplicate vUsers</span>`);
+  m.innerHTML = parts.join('');
+}
+
+function renderOutput() {
+  current = compute();
+  $('copyAll').disabled = !current;
+  $('download').disabled = !current;
+  $('breakdown').disabled = !current;
+  renderBreakdownName();
+  renderMeta();
+  setSeg($('viewSeg'), state.view);
+  const out = $('out');
+  if (!current) {
+    const loading = state.runs.some(r => r.status === 'loading');
+    out.innerHTML = `<div class="empty">${icon.alert(28)}<div>${loading ? 'Reading files…' : 'Add summary.csv files with -l, or drop them here.'}</div></div>`;
+    return;
+  }
+  const scroll = out.scrollTop;
+  const wrap = out.querySelector('.ematrix-wrap');
+  const inner = wrap ? [wrap.scrollTop, wrap.scrollLeft] : null;
+  const focusSel = focusKey(document.activeElement);
+  out.innerHTML = state.view === 'tables' ? tablesView() : errorsView();
+  if (state.view === 'errors') {
+    fitErrorColumn();
+    const w = out.querySelector('.ematrix-wrap');
+    if (w && inner) { w.scrollTop = inner[0]; w.scrollLeft = inner[1]; }
+  }
+  out.scrollTop = scroll;
+  if (focusSel) { const el = out.querySelector(focusSel); if (el) el.focus({ preventScroll: true }); }
+}
+
+// The control that had focus, as a selector that finds its replacement after a re-render.
+function focusKey(el) {
+  if (!el || !$('out').contains(el)) return null;
+  for (const a of ['data-tcell', 'data-acell', 'data-trow', 'data-arow', 'data-expand', 'data-copy', 'data-grip', 'data-tall']) {
+    if (el.hasAttribute(a)) return el.getAttribute(a) ? `[${a}="${el.getAttribute(a)}"]` : `[${a}]`;
+  }
+  return null;
+}
+
+function tablesView() {
+  return current.tables.map((t, i) =>
+    `<div class="tblock"><div class="tblock-h"><h3>${esc(t.title)}</h3>` +
+    `<span class="copy-err" data-copyerr="${i}" hidden>Copy blocked by this browser</span>` +
+    `<button type="button" class="btn ghost" data-copy="${i}"><span class="i">${icon.copy(14)}</span><span class="t">Copy</span></button></div>` +
+    `<div class="paper" tabindex="0" role="region" aria-label="${esc(t.title)}">${tableHtml(t, state.style)}</div></div>`
+  ).join('');
+}
+
+function errorsView() {
+  const { list, labels, result, before } = current;
+  const n = list.length;
+
+  // Error types (raw JMeter names) with their APIs; counts per run.
+  const types = new Map();
+  list.forEach((r, i) => {
+    for (const g of errorGroups(r.run)) {
+      let t = types.get(g.type);
+      if (!t) { t = { type: g.type, apis: new Map(), total: 0 }; types.set(g.type, t); }
+      let a = t.apis.get(g.api);
+      if (!a) {
+        a = { api: g.api, counts: new Array(n).fill(0), total: 0, keys: list.map(x => exclusionKey(x.id, g.type, g.api)) };
+        t.apis.set(g.api, a);
+      }
+      a.counts[i] += g.count; a.total += g.count; t.total += g.count;
+    }
+  });
+  if (!types.size) return `<div class="empty">${icon.check(28)}<div>No errors in the loaded runs.</div></div>`;
+
+  errTypes = [...types.values()].sort((x, y) => y.total - x.total).map(t => ({
+    ...t, apis: [...t.apis.values()].sort((x, y) => y.total - x.total)
+  }));
+  errRows = [];
+
+  const isOut = k => state.excluded.has(k);
+  const cellBtn = (attr, total, kept, title) => {
+    if (!total) return '<td class="cell"></td>';
+    const cls = kept === total ? '' : kept === 0 ? ' out' : ' part';
+    return `<td class="cell"><button type="button" class="cellbtn${cls}" ${attr} title="${title}">${fmt.int(kept === 0 ? total : kept)}</button></td>`;
+  };
+  const rowToggle = (attr, allOut, label) =>
+    `<button type="button" class="icon-btn tog" ${attr} title="${allOut ? 'Include' : 'Exclude'} ${label} in every run" aria-label="${allOut ? 'Include' : 'Exclude'} ${label} in every run">${allOut ? icon.undo(14) : icon.x(14)}</button>`;
+
+  let body = '';
+  errTypes.forEach((t, ti) => {
+    const open = state.expanded.has(t.type);
+    const per = list.map((_, i) => {
+      let total = 0, kept = 0;
+      for (const a of t.apis) { total += a.counts[i]; if (!isOut(a.keys[i])) kept += a.counts[i]; }
+      return { total, kept };
+    });
+    const allOut = per.every(p => p.kept === 0);
+    const name = state.rename.get(t.type) || t.type;
+    body += `<tr class="trow-t${allOut ? ' row-out' : ''}">` +
+      `<td class="c0">${rowToggle(`data-trow="${ti}"`, allOut, 'this error type')}</td>` +
+      `<td class="c1"><div class="tname">` +
+      `<button type="button" class="chev${open ? ' open' : ''}" data-expand="${ti}" aria-expanded="${open}" aria-label="${open ? 'Hide' : 'Show'} APIs">` +
+      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></button>' +
+      `<input data-rename="${ti}" value="${esc(name)}" title="${esc(t.type)}" aria-label="Error type name" spellcheck="false">` +
+      `</div></td>` +
+      per.map((p, i) => cellBtn(`data-tcell="${ti}:${i}"`, p.total, p.kept,
+        p.kept === p.total ? 'Exclude in this run' : p.kept === 0 ? 'Excluded: click to include' : `${fmt.int(p.total - p.kept)} of ${fmt.int(p.total)} excluded`)).join('') +
+      '</tr>';
+    if (!open) return;
+    for (const a of t.apis) {
+      const ai = errRows.push(a) - 1;
+      const aOut = a.keys.every((k, i) => !a.counts[i] || isOut(k));
+      const m = /^https?:\/\/[^/?#]+(.*)$/i.exec(a.api);
+      body += `<tr class="trow-a${aOut ? ' row-out' : ''}">` +
+        `<td class="c0">${rowToggle(`data-arow="${ai}"`, aOut, 'this API')}</td>` +
+        `<td class="c1 api mono" title="${esc(a.api)}"><span class="tailtxt">&lrm;${esc(m ? (m[1] || '/') : a.api)}&lrm;</span></td>` +
+        a.counts.map((c, i) => cellBtn(`data-acell="${ai}:${i}"`, c, isOut(a.keys[i]) ? 0 : c,
+          isOut(a.keys[i]) ? 'Excluded: click to include' : 'Exclude in this run')).join('') +
+        '</tr>';
+    }
+  });
+
+  const runHead = l => {
+    const m = /^(.*?)\s*(\(\w+\))$/.exec(l);
+    return m ? `${esc(m[1])}<span class="ord">${esc(m[2])}</span>` : esc(l);
+  };
+  // Header toggle: every error of every type in every run.
+  const allKeys = errTypes.flatMap(t => t.apis.flatMap(a => a.keys.filter((k, i) => a.counts[i])));
+  const everythingOut = allKeys.every(isOut);
+  const allToggle = `<button type="button" class="icon-btn tog" data-tall title="${everythingOut ? 'Include' : 'Exclude'} every error in every run" ` +
+    `aria-label="${everythingOut ? 'Include' : 'Exclude'} every error in every run">${everythingOut ? icon.undo(14) : icon.x(14)}</button>`;
+  const errPct = v => (v.requests ? v.errors / v.requests * 100 : 0);
+  const foot = `<tr><td class="c0"></td><td class="c1 flabel">Errors</td>` +
+    result.views.map(v => `<td class="cell">${fmt.int(v.errors)}</td>`).join('') + '</tr>' +
+    `<tr><td class="c0"></td><td class="c1 flabel">Error %</td>` + result.views.map((v, i) => {
+      const a = fmt.pct2(errPct(before.views[i])), b = fmt.pct2(errPct(v));
+      return `<td class="cell">${a === b ? b : `<s>${a}</s> <span class="after">${b}</span>`}</td>`;
+    }).join('') + '</tr>';
+
+  return `<div class="ematrix-wrap"><table class="ematrix"><thead><tr><th class="c0">${allToggle}</th><th class="c1">Error type<span class="colgrip" data-grip tabindex="0" role="separator" aria-orientation="vertical" aria-label="Resize column" aria-valuemin="240" aria-valuemax="1600" aria-valuenow="420" title="Drag to resize, double-click to fit"></span></th>` +
+    labels.map(l => `<th class="rcol">${runHead(l)}</th>`).join('') + `</tr></thead><tbody>${body}</tbody>` +
+    `<tfoot>${foot}</tfoot></table></div>`;
+}
+
+// ---- error-type column width ---------------------------------------------------------------
+// Auto: wide enough for the longest name, within the space the run columns leave.
+// Manual: dragged with the grip in the header (saved in this browser); double-click returns to auto.
+let measureCtx = null;
+function textWidth(text, font) {
+  measureCtx = measureCtx || document.createElement('canvas').getContext('2d');
+  measureCtx.font = font;
+  return measureCtx.measureText(text).width;
+}
+function fitErrorColumn() {
+  const table = document.querySelector('.ematrix');
+  if (!table) return;
+  let w = state.errColWidth;
+  if (!w) {
+    const wrap = table.parentElement;
+    const sans = getComputedStyle(document.body).fontFamily;
+    let need = 0;
+    for (const t of errTypes) {
+      need = Math.max(need, textWidth(state.rename.get(t.type) || t.type, `500 13px ${sans}`) + 64);
+      if (state.expanded.has(t.type)) for (const a of t.apis) need = Math.max(need, textWidth(a.api.replace(/^https?:\/\/[^/?#]+/i, ''), '11px ' + getComputedStyle(document.documentElement).getPropertyValue('--mono')) + 56);
+    }
+    const runs = table.querySelectorAll('thead th.rcol').length;
+    const room = wrap.clientWidth - 48 - runs * 120 - 8;
+    w = Math.round(Math.max(320, Math.min(need, Math.max(320, room))));
+  }
+  setColWidth(table, w);
+}
+function setColWidth(table, w) {
+  table.style.setProperty('--c1w', w + 'px');
+  const g = table.querySelector('[data-grip]');
+  if (g) g.setAttribute('aria-valuenow', String(w));
+}
+function wireColumnGrip() {
+  let drag = null;
+  $('out').addEventListener('pointerdown', e => {
+    const g = e.target.closest('[data-grip]');
+    if (!g) return;
+    e.preventDefault();
+    const th = g.parentElement;
+    drag = { x: e.clientX, w: th.getBoundingClientRect().width, table: th.closest('table') };
+    g.setPointerCapture(e.pointerId);
+    document.body.classList.add('resizing');
+  });
+  $('out').addEventListener('pointermove', e => {
+    if (!drag) return;
+    const w = Math.round(Math.min(1600, Math.max(240, drag.w + e.clientX - drag.x)));
+    setColWidth(drag.table, w);
+    state.errColWidth = w;
+  });
+  const end = () => { if (!drag) return; drag = null; document.body.classList.remove('resizing'); saveUi(); };
+  $('out').addEventListener('pointerup', end);
+  $('out').addEventListener('pointercancel', end);
+  $('out').addEventListener('dblclick', e => {
+    if (!e.target.closest('[data-grip]')) return;
+    state.errColWidth = null; saveUi(); fitErrorColumn();
+  });
+  $('out').addEventListener('keydown', e => {
+    const g = e.target.closest('[data-grip]');
+    if (!g || !['ArrowLeft', 'ArrowRight', 'Enter'].includes(e.key)) return;
+    e.preventDefault();
+    if (e.key === 'Enter') { state.errColWidth = null; saveUi(); fitErrorColumn(); return; }
+    const cur = g.parentElement.getBoundingClientRect().width;
+    state.errColWidth = Math.round(Math.min(1600, Math.max(240, cur + (e.key === 'ArrowRight' ? 24 : -24))));
+    setColWidth(g.closest('table'), state.errColWidth);
+    saveUi();
+  });
+  window.addEventListener('resize', () => { if (state.view === 'errors') fitErrorColumn(); });
+}
+
+// ---- copy ---------------------------------------------------------------------------------
+function flash(btn, ok, errEl) {
+  const t = btn.querySelector('.t'), i = btn.querySelector('.i');
+  if (!btn.dataset.label) { btn.dataset.label = t.textContent; btn.dataset.icon = i.innerHTML; }
+  clearTimeout(btn._flash);
+  t.textContent = ok ? 'Copied' : 'Copy blocked';
+  i.innerHTML = ok ? icon.check(14) : icon.alert(14);
+  btn.classList.toggle('failed', !ok);
+  if (!ok && errEl) errEl.hidden = false;
+  btn._flash = setTimeout(() => {
+    t.textContent = btn.dataset.label; i.innerHTML = btn.dataset.icon;
+    btn.classList.remove('failed');
+    if (errEl) errEl.hidden = true;
+  }, 1600);
+}
+
+async function copyOne(i, btn) {
+  const t = current.tables[i];
+  const ok = await copyRich(tableHtml(t, state.style), tableTsv(t));
+  flash(btn, ok, document.querySelector(`[data-copyerr="${i}"]`));
+}
+
+async function copyAll() {
+  if (!current) return;
+  const html = current.tables.map(t => headingHtml(t.title, state.style) + tableHtml(t, state.style)).join('');
+  const text = current.tables.map(t => t.title + '\n' + tableTsv(t)).join('\n\n');
+  const ok = await copyRich(html, text);
+  flash($('copyAll'), ok);
+}
+
+function save(bytes, name) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
+  a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+
+function download() {
+  if (!current) return;
+  const d = new Date(Math.min(...current.list.map(r => r.run.start)));
+  const stamp = String(d.getDate()).padStart(2, '0') + String(d.getMonth() + 1).padStart(2, '0') + d.getFullYear();
+  save(buildXlsx(current.tables, state.style), `Tabular - ${stamp}.xlsx`);
+}
+
+// Breakdown workbook: Error Details, API ART per run, and Tr ART per run when chosen.
+function breakdownRuns() {
+  const opts = { excluded: state.excluded, rename: state.rename };
+  return current.list.map((r, i) => ({
+    label: current.labels[i], start: r.run.start, end: r.run.end,
+    apis: apiBreakdown(r.run, r.id, opts), errors: errorDetails(r.run, r.id, opts),
+    transactions: current.result.views[i].transactions,
+    excluded: current.result.views[i].excluded, removedTx: current.result.views[i].removedTx
+  }));
+}
+function breakdownName() {
+  const tx = state.breakdownTx && current && current.result.views.some(v => v.transactions.length);
+  return (tx ? BREAKDOWN_NAMES.readings : BREAKDOWN_NAMES.api) + '.xlsx';
+}
+function renderBreakdownName() {
+  const b = $('breakdown'), name = breakdownName();
+  b.title = name; b.setAttribute('aria-label', 'Download ' + name);
+}
+function downloadBreakdown() {
+  if (!current) return;
+  const b = buildBreakdown(breakdownRuns(), { style: state.style, transactions: state.breakdownTx, detailCols: state.detailCols, exclusions: state.breakdownExcl });
+  save(b.bytes, b.name);
+}
+
+// ---- events -------------------------------------------------------------------------------
+function wire() {
+  $('logo').innerHTML = LOGO(25, false);
+  $('pickFolder').innerHTML = icon.folder(16);
+  $('copyAll').querySelector('.i').innerHTML = icon.copy(16);
+  $('download').querySelector('.i').innerHTML = icon.download(16);
+  $('breakdown').querySelector('.i').innerHTML = icon.sheet(16);
+  document.querySelectorAll('.step').forEach(b => { b.innerHTML = b.dataset.d === '1' ? icon.plus(14) : icon.minus(14); });
+
+  $('gear').innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>';
+  $('drawerClose').innerHTML = icon.x(16);
+  $('gear').onclick = openDrawer;
+  $('drawerClose').onclick = closeDrawer;
+  $('scrim').onclick = closeDrawer;
+  document.addEventListener('keydown', e => {
+    if ($('drawer').hidden) return;
+    if (e.key === 'Escape') { closeDrawer(); return; }
+    if (e.key !== 'Tab') return;
+    const f = [...$('drawer').querySelectorAll('button, input, select, [tabindex]:not([tabindex="-1"])')]
+      .filter(el => !el.disabled && el.offsetParent !== null);
+    if (!f.length) return;
+    const first = f[0], last = f[f.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  });
+  $('drawer').addEventListener('change', e => {
+    if (e.target.id === 'breakdownTx') { state.breakdownTx = e.target.checked; savePrefs(); renderBreakdownName(); return; }
+    if (e.target.id === 'breakdownExcl') { state.breakdownExcl = e.target.checked; savePrefs(); return; }
+    const key = e.target.dataset.cols;
+    if (!key) return;
+    const chosen = [...$(key).querySelectorAll('input:checked')].map(i => i.value);
+    const err = $(key === 'detailCols' ? 'detailErr' : 'matrixErr');
+    if (!chosen.length) { e.target.checked = true; err.hidden = false; setTimeout(() => { err.hidden = true; }, 2000); return; }
+    state[key] = COLUMNS.map(c => c.key).filter(k => chosen.includes(k));
+    savePrefs(); renderOutput();
+  });
+  $('resetPrefs').onclick = () => {
+    Object.assign(state, DEFAULT_PREFS());
+    state.setMinutes = null;
+    savePrefs(); renderCols(); renderThroughput(); renderOutput();
+  };
+
+  $('pickFiles').onclick = () => $('fileInput').click();
+  $('pickFolder').onclick = () => $('folderInput').click();
+  $('fileInput').onchange = e => { addItems(filesFromPicker(e.target.files, false)); e.target.value = ''; };
+  $('folderInput').onchange = e => { addItems(filesFromPicker(e.target.files, true)); e.target.value = ''; };
+
+  let depth = 0;
+  const hasFiles = e => [...(e.dataTransfer?.types || [])].includes('Files');
+  window.addEventListener('dragenter', e => { if (!hasFiles(e)) return; e.preventDefault(); depth++; $('dropmask').hidden = false; });
+  window.addEventListener('dragover', e => { if (hasFiles(e)) e.preventDefault(); });
+  window.addEventListener('dragleave', () => { depth = Math.max(0, depth - 1); if (!depth) $('dropmask').hidden = true; });
+  window.addEventListener('drop', async e => {
+    if (!hasFiles(e)) return;
+    e.preventDefault(); depth = 0; $('dropmask').hidden = true;
+    addItems(await filesFromDrop(e.dataTransfer));
+  });
+
+  $('runs').addEventListener('click', e => {
+    const b = e.target.closest('[data-remove]');
+    if (!b) return;
+    const id = b.dataset.remove;
+    state.runs = state.runs.filter(r => r.id !== id);
+    for (const k of [...state.excluded]) if (k.startsWith(id + '\u0001')) state.excluded.delete(k);
+    renderRuns(); renderOutput();
+  });
+  $('runs').addEventListener('input', e => {
+    if (e.target.dataset.vu) e.target.value = e.target.value.replace(/\D/g, '');
+  });
+  $('runs').addEventListener('change', e => {
+    const id = e.target.dataset.vu;
+    if (!id) return;
+    const r = state.runs.find(x => x.id === id);
+    const n = parseInt(e.target.value, 10);
+    r.vUsers = n > 0 ? n : r.run.vUsers;
+    renderRuns(); renderOutput();
+  });
+
+  $('durSeg').onclick = e => {
+    const v = e.target.closest('button')?.dataset.v;
+    if (!v) return;
+    state.durationMode = v; savePrefs(); renderThroughput(); renderOutput();
+  };
+  const minutes = $('minutes');
+  const commitMinutes = n => {
+    const ok = Number.isInteger(n) && n >= 1 && n <= 10080;
+    $('minErr').hidden = ok; minutes.classList.toggle('bad', !ok);
+    if (!ok) { $('minErr').textContent = 'Whole minutes, 1 or more'; return; }
+    state.setMinutes = n; renderOutput();
+  };
+  minutes.oninput = () => { minutes.value = minutes.value.replace(/\D/g, ''); commitMinutes(parseInt(minutes.value, 10)); };
+  minutes.onblur = () => { minutes.value = setMinutes(readyRuns()); minutes.classList.remove('bad'); $('minErr').hidden = true; };
+  $('minStep').querySelectorAll('.step').forEach(b => {
+    b.onclick = () => { commitMinutes(Math.max(1, setMinutes(readyRuns()) + Number(b.dataset.d))); renderThroughput(); };
+  });
+
+  // Per-run rows: All | Top N
+  $('rowsSeg').onclick = e => {
+    const v = e.target.closest('button')?.dataset.v;
+    if (!v) return;
+    state.detailRows = v; savePrefs(); renderRows(); renderOutput();
+  };
+  const topN = $('topN');
+  const commitTop = n => {
+    const ok = validTop(n);
+    $('topErr').hidden = ok; topN.classList.toggle('bad', !ok);
+    if (!ok) { $('topErr').textContent = `Whole number from 1 to ${TOP_MAX}`; return; }
+    state.topN = n; savePrefs(); renderOutput();
+  };
+  topN.oninput = () => { topN.value = topN.value.replace(/\D/g, ''); commitTop(parseInt(topN.value, 10)); };
+  topN.onblur = () => { topN.value = state.topN; topN.classList.remove('bad'); $('topErr').hidden = true; };
+  $('topStep').querySelectorAll('.step').forEach(b => {
+    b.onclick = () => { commitTop(Math.min(TOP_MAX, Math.max(1, state.topN + Number(b.dataset.d)))); renderRows(); };
+  });
+
+  const styleChanged = () => { saveStyle(); renderStyle(); renderOutput(); };
+  $('themeSel').onchange = e => { if (e.target.value) applyTheme(e.target.value); };
+  $('themeRevert').onclick = () => applyTheme(state.style.theme);
+
+  // Theme manager (settings drawer)
+  $('themeAdd').onclick = () => openThemeForm(-1);
+  $('tfCancel').onclick = () => { state.themeEdit = null; renderThemeList(); $('themeAdd').focus(); };
+  $('tfPick').oninput = e => { $('tfHex').value = e.target.value.toUpperCase(); };
+  $('tfHex').oninput = e => { const h = normHex(e.target.value); if (h) $('tfPick').value = h; };
+  $('tfSize').oninput = e => { e.target.value = e.target.value.replace(/\D/g, ''); };
+  $('themeForm').onsubmit = e => {
+    e.preventDefault();
+    const index = state.themeEdit.index;
+    const others = state.themes.filter((_, i) => i !== index);
+    const r = validateTheme({ name: $('tfName').value, head: $('tfHex').value, font: $('tfFont').value, size: parseInt($('tfSize').value, 10) }, others);
+    const fields = { name: 'tfName', head: 'tfHex', font: 'tfFont', size: 'tfSize' };
+    $('themeForm').querySelectorAll('[data-err]').forEach(el => {
+      const msg = r.errors && r.errors[el.dataset.err];
+      el.hidden = !msg; el.textContent = msg || '';
+      $(fields[el.dataset.err]).classList.toggle('bad', !!msg);
+    });
+    if (r.errors) return;
+    const oldName = index >= 0 ? state.themes[index].name : null;
+    if (index >= 0) state.themes[index] = r.theme; else state.themes.push(r.theme);
+    saveThemes();
+    state.themeEdit = null;
+    // A new theme, or the theme in use, is applied right away.
+    if (index < 0 || state.style.theme === oldName) applyTheme(r.theme.name); else renderStyle();
+    themeNote(index >= 0 ? `Saved ${r.theme.name}.` : `Added ${r.theme.name}.`);
+    $('themeAdd').focus();
+  };
+  $('themeList').addEventListener('click', e => {
+    const ed = e.target.closest('[data-tedit]');
+    if (ed) { openThemeForm(Number(ed.dataset.tedit)); return; }
+    const del = e.target.closest('[data-tdel]');
+    if (del) {
+      const i = Number(del.dataset.tdel);
+      const [gone] = state.themes.splice(i, 1);
+      state.undoTheme = { theme: gone, index: i };
+      state.themeEdit = null;
+      saveThemes(); renderStyle();
+      themeNote(`Deleted ${gone.name}.`, true);
+      return;
+    }
+    const row = e.target.closest('.trow');
+    if (row) applyTheme(row.querySelector('.tn b').textContent);
+  });
+  $('themeNote').addEventListener('click', e => {
+    if (e.target.id !== 'themeUndo' || !state.undoTheme) return;
+    const { theme, index } = state.undoTheme;
+    state.themes.splice(index, 0, theme); state.undoTheme = null;
+    saveThemes(); renderStyle(); themeNote(`Restored ${theme.name}.`);
+  });
+  $('themeExport').onclick = () => {
+    if (!state.themes.length) { themeNote('No saved themes to export.'); return; }
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([exportThemes(state.themes)], { type: 'application/json' }));
+    a.download = 'Tabular themes.json';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    themeNote(`Exported ${state.themes.length} theme(s).`);
+  };
+  $('themeImport').onclick = () => $('themeFile').click();
+  $('themeFile').onchange = async e => {
+    const f = e.target.files[0]; e.target.value = '';
+    if (!f) return;
+    const r = importThemes(await f.text(), state.themes);
+    if (r.error) { themeNote(r.error + '.'); return; }
+    state.themes = r.themes; saveThemes(); renderStyle();
+    themeNote(`Imported ${r.added} new, ${r.replaced} replaced` + (r.rejected ? `, ${r.rejected} skipped (invalid or a built-in name)` : '') + '.');
+  };
+  $('headPick').oninput = e => { state.style.head = e.target.value.toUpperCase(); $('headHex').value = state.style.head; styleChanged(); };
+  $('headHex').oninput = e => {
+    let v = e.target.value.trim();
+    if (v && v[0] !== '#') v = '#' + v;
+    const ok = /^#[0-9a-f]{6}$/i.test(v);
+    e.target.classList.toggle('bad', !ok);
+    $('hexErr').hidden = ok; $('hexErr').textContent = 'Use a 6-digit hex colour, e.g. #B68A35';
+    if (ok) { state.style.head = v.toUpperCase(); styleChanged(); }
+  };
+  $('headHex').onblur = () => { $('headHex').classList.remove('bad'); $('hexErr').hidden = true; renderStyle(); };
+  $('font').oninput = e => {
+    const f = e.target.value.trim();
+    $('fontErr').hidden = !!f; e.target.classList.toggle('bad', !f);
+    if (f) { state.style.font = f; styleChanged(); }
+  };
+  $('font').onblur = () => { $('fontErr').hidden = true; $('font').classList.remove('bad'); renderStyle(); };
+  const size = $('size');
+  size.oninput = () => {
+    size.value = size.value.replace(/\D/g, '');
+    const n = parseInt(size.value, 10);
+    const ok = n >= 6 && n <= 48;
+    $('sizeErr').hidden = ok; $('sizeStep').classList.toggle('bad', !ok);
+    if (ok) { state.style.size = n; styleChanged(); }
+  };
+  size.onblur = () => { $('sizeErr').hidden = true; $('sizeStep').classList.remove('bad'); renderStyle(); };
+  $('sizeStep').querySelectorAll('.step').forEach(b => {
+    b.onclick = () => { state.style.size = Math.min(48, Math.max(6, state.style.size + Number(b.dataset.d))); styleChanged(); };
+  });
+
+  $('viewSeg').onclick = e => {
+    const v = e.target.closest('button')?.dataset.v;
+    if (!v) return;
+    state.view = v; renderOutput();
+  };
+
+  $('out').addEventListener('click', e => {
+    const c = e.target.closest('[data-copy]');
+    if (c) { copyOne(Number(c.dataset.copy), c); return; }
+    const toggleKeys = keys => {
+      const allOut = keys.every(k => state.excluded.has(k));
+      keys.forEach(k => (allOut ? state.excluded.delete(k) : state.excluded.add(k)));
+      renderOutput();
+    };
+    const pick = (sel, f) => { const el = e.target.closest(sel); if (el) { f(el); return true; } return false; };
+    if (pick('[data-tall]', () => {
+      toggleKeys(errTypes.flatMap(t => t.apis.flatMap(a => a.keys.filter((k, i) => a.counts[i]))));
+    })) return;
+    if (pick('[data-expand]', el => {
+      const t = errTypes[Number(el.dataset.expand)].type;
+      if (state.expanded.has(t)) state.expanded.delete(t); else state.expanded.add(t);
+      renderOutput();
+    })) return;
+    if (pick('[data-tcell]', el => {
+      const [ti, ci] = el.dataset.tcell.split(':').map(Number);
+      toggleKeys(errTypes[ti].apis.filter(a => a.counts[ci]).map(a => a.keys[ci]));
+    })) return;
+    if (pick('[data-trow]', el => {
+      const t = errTypes[Number(el.dataset.trow)];
+      toggleKeys(t.apis.flatMap(a => a.keys.filter((k, i) => a.counts[i])));
+    })) return;
+    if (pick('[data-acell]', el => {
+      const [ai, ci] = el.dataset.acell.split(':').map(Number);
+      toggleKeys([errRows[ai].keys[ci]]);
+    })) return;
+    pick('[data-arow]', el => {
+      const a = errRows[Number(el.dataset.arow)];
+      toggleKeys(a.keys.filter((k, i) => a.counts[i]));
+    });
+  });
+  $('out').addEventListener('change', e => {
+    if (e.target.dataset.rename === undefined) return;
+    const raw = errTypes[Number(e.target.dataset.rename)].type;
+    const v = e.target.value.trim();
+    if (!v || v === raw) state.rename.delete(raw); else state.rename.set(raw, v);
+    renderOutput();
+  });
+  $('out').addEventListener('keydown', e => {
+    if (e.key === 'Enter' && e.target.dataset.rename !== undefined) e.target.blur();
+  });
+
+  $('copyAll').onclick = copyAll;
+  $('download').onclick = download;
+  $('breakdown').onclick = downloadBreakdown;
+}
+
+wire();
+wireColumnGrip();
+renderCols();
+renderRuns();
+renderStyle();
+renderOutput();
+
+
+});
+__req("ui/app.js");
+})();
+</script>
+</body>
+</html>
