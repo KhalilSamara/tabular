@@ -1899,11 +1899,13 @@ exports.runWindow = runWindow;
 exports.buildBreakdown = buildBreakdown;
 });
 __def("core/themes.js", function (exports, __req) {
-// Saved table themes: { name, head, font, size }. Built-ins come from PRESETS and can't
-// be edited or deleted. Pure functions; storage lives in the UI layer.
+// Table themes: { name, head, font, size }. One list with no built-in/saved distinction
+// (decided 2026-10-19). Gold, Navy and Teal are put in the list the first time Tabular runs
+// in a browser; from then on they are ordinary themes: editable, renamable, deletable.
+// Pure functions; storage lives in the UI layer.
 const { PRESETS } = __req("core/table-html.js");
 
-const BUILT_IN = Object.entries(PRESETS).map(([name, p]) => ({ name, ...p, builtIn: true }));
+const DEFAULT_THEMES = Object.entries(PRESETS).map(([name, p]) => ({ name, ...p }));
 const HEX = /^#[0-9a-f]{6}$/i;
 
 function normHex(v) {
@@ -1912,7 +1914,7 @@ function normHex(v) {
   return HEX.test(s) ? s.toUpperCase() : null;
 }
 
-// Returns { theme } or { errors: { field: message } }. `others` = saved themes except the one being edited.
+// Returns { theme } or { errors: { field: message } }. `others` = the other themes in the list.
 function validateTheme(input, others = []) {
   const errors = {};
   const name = String(input.name || '').trim().replace(/\s+/g, ' ');
@@ -1921,11 +1923,28 @@ function validateTheme(input, others = []) {
   const size = Number(input.size);
   if (!name) errors.name = 'Name is required';
   else if (name.length > 40) errors.name = '40 characters at most';
-  else if ([...BUILT_IN, ...others].some(t => t.name.toLowerCase() === name.toLowerCase())) errors.name = 'A theme with this name exists';
+  else if (others.some(t => t.name.toLowerCase() === name.toLowerCase())) errors.name = 'A theme with this name exists';
   if (!head) errors.head = 'Use a 6-digit hex colour, e.g. #B68A35';
   if (!font) errors.font = 'Font is required';
   if (!Number.isInteger(size) || size < 6 || size > 48) errors.size = 'Whole points, 6 to 48';
   return Object.keys(errors).length ? { errors } : { theme: { name, head, font, size } };
+}
+
+// The theme list at start-up, from what this browser has stored:
+// - a stored list (even an empty one) is used as it is: the user's own choices
+// - else, themes saved by an older version (`legacy`) are kept after the defaults
+// - else the defaults (first run, a new browser, or an incognito tab)
+function initialThemes(stored, legacy) {
+  const clean = list => {
+    const out = [];
+    for (const t of Array.isArray(list) ? list : []) { const r = validateTheme(t || {}, out); if (r.theme) out.push(r.theme); }
+    return out;
+  };
+  const parse = text => { try { return JSON.parse(text); } catch { return undefined; } };
+  const s = stored == null ? undefined : parse(stored);
+  if (Array.isArray(s)) return { themes: clean(s), seeded: false };
+  const l = legacy == null ? undefined : parse(legacy);
+  return { themes: clean([...DEFAULT_THEMES, ...(Array.isArray(l) ? l : [])]), seeded: true };
 }
 
 function exportThemes(themes) {
@@ -1956,9 +1975,10 @@ function sameLook(a, b) {
   return !!a && !!b && a.head.toUpperCase() === b.head.toUpperCase() && a.font === b.font && Number(a.size) === Number(b.size);
 }
 
-exports.BUILT_IN = BUILT_IN;
+exports.DEFAULT_THEMES = DEFAULT_THEMES;
 exports.normHex = normHex;
 exports.validateTheme = validateTheme;
+exports.initialThemes = initialThemes;
 exports.exportThemes = exportThemes;
 exports.importThemes = importThemes;
 exports.sameLook = sameLook;
@@ -2001,7 +2021,7 @@ const { parseInBackground, filesFromDrop, filesFromPicker, screen } = __req("ui/
 const { copyRich } = __req("ui/clipboard.js");
 const { buildXlsx } = __req("core/xlsx.js");
 const { buildBreakdown, BREAKDOWN_NAMES } = __req("core/breakdown.js");
-const { BUILT_IN, validateTheme, exportThemes, importThemes, sameLook, normHex } = __req("core/themes.js");
+const { DEFAULT_THEMES, initialThemes, validateTheme, exportThemes, importThemes, sameLook, normHex } = __req("core/themes.js");
 const { icon, LOGO } = __req("ui/icons.js");
 
 const $ = id => document.getElementById(id);
@@ -2013,25 +2033,26 @@ function loadStyle() {
   try {
     const s = JSON.parse(localStorage.getItem(STYLE_KEY));
     if (s && /^#[0-9a-f]{6}$/i.test(s.head) && s.font && s.size) {
-      if (s.theme === undefined) { const m = BUILT_IN.find(t => sameLook(t, s)); s.theme = m ? m.name : ''; }
+      if (s.theme === undefined) { const m = DEFAULT_THEMES.find(t => sameLook(t, s)); s.theme = m ? m.name : ''; }
       return s;
     }
   } catch { /* storage unavailable */ }
   return { theme: 'Gold', ...PRESETS.Gold };
 }
-const THEMES_KEY = 'tabular.themes.v1';
+// v2 = one list holding every theme. v1 held only the user's added themes (before 2026-10-19).
+const THEMES_KEY = 'tabular.themes.v2';
+const THEMES_V1 = 'tabular.themes.v1';
 function loadThemes() {
-  try {
-    const list = JSON.parse(localStorage.getItem(THEMES_KEY));
-    if (!Array.isArray(list)) return [];
-    const out = [];
-    for (const t of list) { const r = validateTheme(t, out); if (r.theme) out.push(r.theme); }
-    return out;
-  } catch { return []; }
+  let stored = null, legacy = null;
+  try { stored = localStorage.getItem(THEMES_KEY); legacy = localStorage.getItem(THEMES_V1); } catch { /* storage unavailable */ }
+  const { themes, seeded } = initialThemes(stored, legacy);
+  if (seeded) {
+    try { localStorage.setItem(THEMES_KEY, JSON.stringify(themes)); localStorage.removeItem(THEMES_V1); } catch { /* ignore */ }
+  }
+  return themes;
 }
 function saveThemes() { try { localStorage.setItem(THEMES_KEY, JSON.stringify(state.themes)); } catch { /* ignore */ } }
-const allThemes = () => [...BUILT_IN, ...state.themes];
-const findTheme = name => allThemes().find(t => t.name === name);
+const findTheme = name => state.themes.find(t => t.name === name);
 
 const UI_KEY = 'tabular.ui.v1';
 function loadUi() { try { return JSON.parse(localStorage.getItem(UI_KEY)) || {}; } catch { return {}; } }
@@ -2067,7 +2088,7 @@ const state = {
   ...loadPrefs(),       // durationMode, detailCols, matrixCols, breakdownTx, detailRows, topN (persisted)
   setMinutes: null,    // null = automatic default
   style: loadStyle(),   // { theme, head, font, size }
-  themes: loadThemes(), // saved themes
+  themes: loadThemes(), // every theme, in list order (Gold, Navy, Teal on first run)
   themeEdit: null,      // null | { index } (index -1 = new)
   undoTheme: null,
   view: 'tables',
@@ -2244,9 +2265,7 @@ function renderStyle() {
   const s = state.style;
   const theme = findTheme(s.theme);
   const opt = t => `<option value="${esc(t.name)}"${theme && t.name === theme.name ? ' selected' : ''}>${esc(t.name)}</option>`;
-  $('themeSel').innerHTML = (theme ? '' : '<option value="" selected>Custom</option>') +
-    `<optgroup label="Built-in">${BUILT_IN.map(opt).join('')}</optgroup>` +
-    (state.themes.length ? `<optgroup label="Saved">${state.themes.map(opt).join('')}</optgroup>` : '');
+  $('themeSel').innerHTML = (theme ? '' : '<option value="" selected>Custom</option>') + state.themes.map(opt).join('');
   const modified = !!theme && !sameLook(theme, s);
   $('themeMod').hidden = !modified;
   $('themeRevert').hidden = !modified;
@@ -2259,10 +2278,8 @@ function renderStyle() {
 
 function renderThemeList() {
   const cur = state.style.theme;
-  $('themeList').innerHTML = allThemes().map((t, i) => {
-    const si = i - BUILT_IN.length;
-    const acts = t.builtIn ? '<span class="tag">built-in</span>' :
-      `<div class="acts"><button type="button" class="icon-btn" data-tedit="${si}" aria-label="Edit ${esc(t.name)}">` +
+  $('themeList').innerHTML = state.themes.map((t, si) => {
+    const acts = `<div class="acts"><button type="button" class="icon-btn" data-tedit="${si}" aria-label="Edit ${esc(t.name)}">` +
       '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></button>' +
       `<button type="button" class="icon-btn" data-tdel="${si}" aria-label="Delete ${esc(t.name)}">${icon.x(14)}</button></div>`;
     return `<div class="trow${t.name === cur ? ' current' : ''}"><span class="sw" style="background:${t.head}"></span>` +
@@ -2769,7 +2786,7 @@ function wire() {
     saveThemes(); renderStyle(); themeNote(`Restored ${theme.name}.`);
   });
   $('themeExport').onclick = () => {
-    if (!state.themes.length) { themeNote('No saved themes to export.'); return; }
+    if (!state.themes.length) { themeNote('No themes to export.'); return; }
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([exportThemes(state.themes)], { type: 'application/json' }));
     a.download = 'Tabular themes.json';
@@ -2784,7 +2801,7 @@ function wire() {
     const r = importThemes(await f.text(), state.themes);
     if (r.error) { themeNote(r.error + '.'); return; }
     state.themes = r.themes; saveThemes(); renderStyle();
-    themeNote(`Imported ${r.added} new, ${r.replaced} replaced` + (r.rejected ? `, ${r.rejected} skipped (invalid or a built-in name)` : '') + '.');
+    themeNote(`Imported ${r.added} new, ${r.replaced} replaced` + (r.rejected ? `, ${r.rejected} skipped (invalid)` : '') + '.');
   };
   $('headPick').oninput = e => { state.style.head = e.target.value.toUpperCase(); $('headHex').value = state.style.head; styleChanged(); };
   $('headHex').oninput = e => {
